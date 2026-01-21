@@ -47,11 +47,34 @@ exports.loginSync = async (req, res) => {
             name: user.name,
             email: user.email,
             role: user.role,
+            is_coordinator: user.is_coordinator,
             firebase_uid: user.firebase_uid
         });
 
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server Error during Sync' });
+    }
+};
+
+exports.toggleCoordinator = async (req, res) => {
+    try {
+        const user = await User.findByPk(req.user.id);
+
+        if (user.role !== 'faculty') {
+            return res.status(403).json({ message: 'Only faculty can be coordinators' });
+        }
+
+        user.is_coordinator = !user.is_coordinator;
+        await user.save();
+
+        res.json({
+            message: `Coordinator status updated to ${user.is_coordinator}`,
+            is_coordinator: user.is_coordinator
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error' });
     }
 };

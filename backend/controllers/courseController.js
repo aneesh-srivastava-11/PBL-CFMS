@@ -1,5 +1,6 @@
 const Course = require('../models/courseModel');
-const File = require('../models/fileModel'); // Added File Import at top (simulated here)
+const File = require('../models/fileModel');
+const User = require('../models/userModel');
 
 exports.createCourse = async (req, res) => {
     // ... existing ...
@@ -18,8 +19,22 @@ exports.getCourses = async (req, res) => {
         let courses;
         if (req.user.role === 'faculty') {
             courses = await Course.findAll({ where: { faculty_id: req.user.id } });
+        } else if (req.user.role === 'student') {
+            // Robust 2-step fetch to avoid association magic issues
+            const Enrollment = require('../models/enrollmentModel');
+            const enrollments = await Enrollment.findAll({
+                where: { student_id: req.user.id },
+                attributes: ['course_id']
+            });
+            const courseIds = enrollments.map(e => e.course_id);
+
+            if (courseIds.length > 0) {
+                courses = await Course.findAll({ where: { id: courseIds } });
+            } else {
+                courses = [];
+            }
         } else {
-            courses = await Course.findAll();
+            courses = await Course.findAll(); // Admin see all
         }
         res.json(courses);
     } catch (error) {
@@ -102,6 +117,11 @@ const { PDFDocument } = require('pdf-lib');
 exports.generateCoursePDF = async (req, res) => {
     const courseId = req.params.id;
     const { force } = req.body; // force=true to skip validation
+
+    // Check Coordinator Permission
+    if (!req.user.is_coordinator && req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Only Course Coordinators can generate files.' });
+    }
 
     try {
         const course = await Course.findByPk(courseId);

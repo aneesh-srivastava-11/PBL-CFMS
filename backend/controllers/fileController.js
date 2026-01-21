@@ -119,3 +119,29 @@ exports.getFileHandler = (req, res) => {
     const readStream = getFileStream(key);
     readStream.pipe(res);
 };
+
+exports.downloadFileHandler = async (req, res) => {
+    try {
+        const file = await File.findByPk(req.params.id);
+        if (!file) return res.status(404).json({ message: 'File not found' });
+
+        // Check enrollment/permissions if needed, but 'protect' middleware should handle basic auth
+        // Assuming protect is used.
+
+        if (process.env.AWS_BUCKET_NAME) {
+            // S3 Download
+            const readStream = getFileStream(file.s3_key);
+            res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+            readStream.pipe(res);
+        } else {
+            // Local Download
+            const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
+            if (!fs.existsSync(filePath)) return res.status(404).json({ message: 'File on disk not found' });
+
+            res.download(filePath, file.filename); // This sets Content-Disposition automatically
+        }
+    } catch (error) {
+        console.error('Download error:', error);
+        res.status(500).json({ message: 'Download failed' });
+    }
+};

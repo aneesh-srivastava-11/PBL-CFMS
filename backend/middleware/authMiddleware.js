@@ -17,6 +17,7 @@ const protect = async (req, res, next) => {
             if (internalUser) {
                 req.user.id = internalUser.id;
                 req.user.role = internalUser.role;
+                req.user.is_coordinator = internalUser.is_coordinator;
             } else {
                 // If checking sync route, we might not have user yet, which is fine
             }

@@ -24,6 +24,10 @@ const User = sequelize.define('User', {
         type: DataTypes.ENUM('admin', 'faculty', 'student', 'reviewer'),
         defaultValue: 'student'
     },
+    is_coordinator: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
     firebase_uid: {
         type: DataTypes.STRING,
         unique: true,
