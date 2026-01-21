@@ -10,36 +10,45 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const userInfo = localStorage.getItem('userInfo');
         if (userInfo) {
-            setUser(JSON.parse(userInfo));
+            try {
+                setUser(JSON.parse(userInfo));
+            } catch (error) {
+                console.error("Failed to parse user info:", error);
+                localStorage.removeItem('userInfo');
+            }
         }
         setLoading(false);
     }, []);
 
-    const login = async (email, password) => {
+    const login = async (firebaseToken, name = '') => {
         try {
-            const { data } = await axios.post('http://localhost:5000/api/auth/login', { email, password });
-            setUser(data);
-            localStorage.setItem('userInfo', JSON.stringify(data));
+            // Send Firebase Token (and optional name) to Backend
+            const { data } = await axios.post('http://localhost:5000/api/auth/login-sync', { name }, {
+                headers: {
+                    Authorization: `Bearer ${firebaseToken}`
+                }
+            });
+
+            // Backend returns our internal user object + role
+            setUser({ ...data, token: firebaseToken });
+            localStorage.setItem('userInfo', JSON.stringify({ ...data, token: firebaseToken }));
             return data;
         } catch (error) {
-            throw error.response?.data?.message || 'Login failed';
+            console.error(error);
+            throw error.response?.data?.message || 'Login sync failed';
         }
     };
 
-    const register = async (name, email, password, role) => {
-        try {
-            const { data } = await axios.post('http://localhost:5000/api/auth/register', { name, email, password, role });
-            setUser(data);
-            localStorage.setItem('userInfo', JSON.stringify(data));
-            return data;
-        } catch (error) {
-            throw error.response?.data?.message || 'Registration failed';
-        }
+    const register = async () => {
+        // Deprecated in favor of Google Sync
+        throw new Error("Registration is disabled. Use Google Sign-In.");
     };
 
     const logout = () => {
         localStorage.removeItem('userInfo');
         setUser(null);
+        // also sign out from firebase if needed, but context might not have auth instance imported directly?
+        // Ideally we import auth here and signOut(auth)
     };
 
     return (

@@ -12,6 +12,7 @@ router.route('/:id')
     .delete(protect, authorize('admin', 'faculty'), require('../controllers/courseController').deleteCourse);
 
 router.get('/:id/download', protect, authorize('admin', 'faculty', 'reviewer'), require('../controllers/courseController').downloadCourseZip);
+router.post('/:id/generate-pdf', protect, authorize('admin', 'faculty'), require('../controllers/courseController').generateCoursePDF);
 
 
 module.exports = router;

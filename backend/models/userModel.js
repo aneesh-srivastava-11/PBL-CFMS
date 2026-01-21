@@ -1,23 +1,37 @@
-const db = require('../config/db');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/db');
 
-class User {
-    static async create(name, email, password, role) {
-        const [result] = await db.execute(
-            'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-            [name, email, password, role]
-        );
-        return result.insertId;
+const User = sequelize.define('User', {
+    id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true
+    },
+    password: {
+        type: DataTypes.STRING,
+        allowNull: true // Changed to true since we use Firebase mostly now
+    },
+    role: {
+        type: DataTypes.ENUM('admin', 'faculty', 'student', 'reviewer'),
+        defaultValue: 'student'
+    },
+    firebase_uid: {
+        type: DataTypes.STRING,
+        unique: true,
+        allowNull: true
     }
-
-    static async findByEmail(email) {
-        const [rows] = await db.execute('SELECT * FROM users WHERE email = ?', [email]);
-        return rows[0];
-    }
-
-    static async findById(id) {
-        const [rows] = await db.execute('SELECT * FROM users WHERE id = ?', [id]);
-        return rows[0];
-    }
-}
+}, {
+    tableName: 'users',
+    timestamps: false // Assuming no createdAt/updatedAt columns in current schema, set true if added
+});
 
 module.exports = User;

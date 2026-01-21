@@ -1,4 +1,4 @@
-const { uploadFile, getFileStream } = require('../utils/s3');
+const { uploadFile, getFileStream, deleteFile } = require('../utils/s3');
 const fs = require('fs');
 const util = require('util');
 const path = require('path');
@@ -27,7 +27,12 @@ exports.uploadFileHandler = async (req, res) => {
 
         // Save to Database
         if (course_id) {
-            await File.create(course_id, file_type || 'other', file.originalname, s3Key);
+            await File.create({
+                course_id,
+                file_type: file_type || 'other',
+                filename: file.originalname,
+                s3_key: s3Key
+            });
         }
 
         res.json({
@@ -44,7 +49,7 @@ exports.uploadFileHandler = async (req, res) => {
 
 exports.getFilesByCourseHandler = async (req, res) => {
     try {
-        const files = await File.findByCourseId(req.params.courseId);
+        const files = await File.findAll({ where: { course_id: req.params.courseId } });
 
         // If user is student, filter out hidden files
         if (req.user.role === 'student') {
@@ -54,6 +59,7 @@ exports.getFilesByCourseHandler = async (req, res) => {
 
         res.json(files);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ message: 'Error fetching files' });
     }
 };
@@ -62,11 +68,11 @@ exports.toggleFileVisibilityHandler = async (req, res) => {
     try {
         const fileId = req.params.id;
         // Fetch file to get current status
-        const file = await File.findById(fileId);
+        const file = await File.findByPk(fileId);
         if (!file) return res.status(404).json({ message: 'File not found' });
 
         const newStatus = !file.is_visible;
-        await File.setVisibility(fileId, newStatus);
+        await file.update({ is_visible: newStatus });
 
         res.json({ message: `File visibility set to ${newStatus}` });
     } catch (error) {
@@ -78,35 +84,29 @@ exports.toggleFileVisibilityHandler = async (req, res) => {
 exports.deleteFileHandler = async (req, res) => {
     try {
         const fileId = req.params.id;
-        // In a real app we would query the file by ID first to get metadata
-        // For now assuming we just verify existence and delete
-        // We need a method in File model to findById
 
-        // Since we don't have a direct File.findById yet, let's just delete the record for now
-        // Ideally we delete the physical file too.
-        // Let's modify this when we have robust file lookup.
-
-        // Quick improvement: fetch file to get path
-        const file = await File.findById(fileId);
+        const file = await File.findByPk(fileId);
         if (!file) {
             return res.status(404).json({ message: 'File not found' });
         }
 
-        // Delete from File System
+        // Delete from File System or S3
         try {
             if (process.env.AWS_BUCKET_NAME) {
-                // Future S3 delete logic
+                await deleteFile(file.s3_key);
             } else {
-                const filePath = path.join(__dirname, '..', 'uploads', file.s3_key); // s3_key stores filename in local mode
+                // Local delete
+                const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
                 if (fs.existsSync(filePath)) {
                     await unlinkFile(filePath);
                 }
             }
         } catch (err) {
             console.error('Error deleting physical file:', err);
+            // We might want to continue deleting the record even if physical delete fails
         }
 
-        await File.delete(fileId);
+        await file.destroy();
         res.json({ message: 'File removed' });
     } catch (error) {
         console.error(error);

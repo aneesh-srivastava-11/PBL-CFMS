@@ -13,6 +13,16 @@ const Dashboard = () => {
     const [fileType, setFileType] = useState('handout');
     const [uploadStatus, setUploadStatus] = useState('');
     const [courseFiles, setCourseFiles] = useState([]);
+    const [showValidationModal, setShowValidationModal] = useState(false);
+    const [missingFiles, setMissingFiles] = useState([]);
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const requiredTypes = [
+        'handout', 'attendance', 'assignment', 'marks',
+        'academic_feedback', 'action_taken', 'exam_paper',
+        'remedial', 'case_study', 'quiz', 'quiz_solution',
+        'exam_solution', 'assignment_solution'
+    ];
 
     useEffect(() => {
         if (!loading && !user) {
@@ -149,6 +159,52 @@ const Dashboard = () => {
         }
     };
 
+    const handleGenerateCourseFile = async (force = false) => {
+        if (!selectedCourse) return;
+        setIsGenerating(true);
+        try {
+            const config = {
+                headers: { Authorization: `Bearer ${user.token}` },
+                responseType: 'arraybuffer' // Important for PDF
+            };
+            // Send force flag
+            const response = await axios.post(
+                `http://localhost:5000/api/courses/${selectedCourse.id}/generate-pdf`,
+                { force },
+                config
+            );
+
+            // If successful, download PDF
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `${selectedCourse.course_code}_CourseFile.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            setShowValidationModal(false);
+            setMissingFiles([]);
+        } catch (error) {
+            if (error.response && error.response.status === 400 && error.response.data.missing) {
+                // Convert ArrayBuffer to JSON to read error message
+                const decoder = new TextDecoder('utf-8');
+                const jsonString = decoder.decode(error.response.data);
+                const errorData = JSON.parse(jsonString);
+
+                setMissingFiles(errorData.missing);
+                setShowValidationModal(true);
+            } else {
+                console.error('Generation failed', error);
+                alert('Failed to generate course file.');
+            }
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+
     if (loading || !user) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
 
     return (
@@ -162,8 +218,8 @@ const Dashboard = () => {
             </nav>
 
             <div className="container" style={{ padding: '2rem 1rem' }}>
-                {/* Course Creation (Faculty/Admin only) */}
-                {(user.role === 'admin' || user.role === 'faculty') && (
+                {/* Course Creation (Faculty only) */}
+                {(user.role === 'faculty') && (
                     <div className="card" style={{ marginBottom: '2rem' }}>
                         <h3 style={{ marginBottom: '1.5rem' }}>Add New Course</h3>
                         <form onSubmit={handleCreateCourse} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
@@ -203,7 +259,7 @@ const Dashboard = () => {
                                 >
                                     {selectedCourse?.id === course.id ? 'Active' : 'Select'}
                                 </button>
-                                {(user.role === 'admin' || user.role === 'faculty') && (
+                                {(user.role === 'faculty') && (
                                     <button
                                         className="btn"
                                         style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', padding: '0.5rem' }}
@@ -228,18 +284,27 @@ const Dashboard = () => {
                             <h3 style={{ margin: 0 }}>
                                 Manage Files: <span style={{ color: 'var(--primary)' }}>{selectedCourse.course_code}</span>
                             </h3>
-                            {/* Zip Download for Admin/Faculty/Reviewer */}
-                            {(['admin', 'faculty', 'reviewer'].includes(user.role)) && (
-                                <button
-                                    className="btn btn-primary"
-                                    onClick={handleDownloadZip}
-                                >
-                                    Download Course Zip
-                                </button>
+                            {(user.role === 'faculty') && (
+                                <div style={{ display: 'flex', gap: '1rem' }}>
+                                    <button
+                                        className="btn btn-primary"
+                                        onClick={handleDownloadZip}
+                                        style={{ background: 'var(--bg-card)', border: '1px solid var(--primary)', color: 'var(--primary)' }}
+                                    >
+                                        Download Zip
+                                    </button>
+                                    <button
+                                        className="btn btn-primary"
+                                        onClick={() => handleGenerateCourseFile(false)}
+                                        disabled={isGenerating}
+                                    >
+                                        {isGenerating ? 'Generating...' : 'Generate Course File'}
+                                    </button>
+                                </div>
                             )}
                         </div>
 
-                        {(user.role === 'admin' || user.role === 'faculty') && (
+                        {(user.role === 'faculty') && (
                             <form onSubmit={handleFileUpload} style={{ display: 'flex', gap: '1rem', alignItems: 'end', marginBottom: '1rem' }}>
                                 <div style={{ flex: 1 }}>
                                     <label style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Select Document</label>
@@ -251,6 +316,9 @@ const Dashboard = () => {
                                         <option value="handout">Handout</option>
                                         <option value="attendance">Attendance</option>
                                         <option value="assignment">Assignment</option>
+                                        <option value="marks">Marks</option>
+                                        <option value="academic_feedback">Academic Feedback</option>
+                                        <option value="action_taken">Action Taken</option>
                                         <option value="exam_paper">Exam Paper</option>
                                         <option value="remedial">Remedial Assignment</option>
                                         <option value="case_study">Case Study</option>
@@ -258,7 +326,7 @@ const Dashboard = () => {
                                         <option value="quiz_solution">Quiz Solution</option>
                                         <option value="exam_solution">Exam Solution</option>
                                         <option value="assignment_solution">Assignment Solution</option>
-                                        <option value="other">Other</option>
+                                        <option value="other">Others</option>
                                     </select>
                                 </div>
                                 <button type="submit" className="btn btn-primary">Upload</button>
@@ -289,8 +357,8 @@ const Dashboard = () => {
                                         </div>
 
                                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                            {/* Visibility Toggle (Admin/Faculty) */}
-                                            {['admin', 'faculty'].includes(user.role) && (
+                                            {/* Visibility Toggle (Faculty) */}
+                                            {(user.role === 'faculty') && (
                                                 <button
                                                     onClick={() => handleToggleVisibility(doc.id)}
                                                     className="btn"
@@ -319,8 +387,8 @@ const Dashboard = () => {
                                             >
                                                 Download
                                             </a>
-                                            {/* Delete Button (Admin/Faculty) */}
-                                            {['admin', 'faculty'].includes(user.role) && (
+                                            {/* Delete Button (Faculty) */}
+                                            {(user.role === 'faculty') && (
                                                 <button
                                                     onClick={() => handleDeleteFile(doc.id)}
                                                     className="btn"
@@ -348,6 +416,56 @@ const Dashboard = () => {
                     to { opacity: 1; transform: translateY(0); }
                 }
             `}</style>
+
+            {showValidationModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                    zIndex: 1000
+                }}>
+                    <div className="card" style={{ width: '400px', maxWidth: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
+                        <h3 style={{ marginBottom: '1rem', color: 'white' }}>Course File Checklist</h3>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+                            The following files are missing. You can force generation, but the course file will be incomplete.
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
+                            {requiredTypes.map(type => {
+                                const isMissing = missingFiles.includes(type);
+                                return (
+                                    <div key={type} style={{
+                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                        padding: '0.5rem', borderRadius: '4px',
+                                        background: isMissing ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                                        border: `1px solid ${isMissing ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
+                                    }}>
+                                        <span style={{ textTransform: 'capitalize' }}>{type.replace('_', ' ')}</span>
+                                        <span>{isMissing ? '❌' : '✅'}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                            <button
+                                className="btn"
+                                style={{ background: 'transparent' }}
+                                onClick={() => setShowValidationModal(false)}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                style={{ background: 'var(--warning)', color: 'black' }}
+                                onClick={() => handleGenerateCourseFile(true)}
+                                disabled={isGenerating}
+                            >
+                                {isGenerating ? 'Generating...' : 'Force Generate'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

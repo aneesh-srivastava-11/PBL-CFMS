@@ -1,32 +1,31 @@
-const db = require('../config/db');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/db');
 
-class Course {
-    static async create(course_code, course_name, semester, faculty_id) {
-        const [result] = await db.execute(
-            'INSERT INTO courses (course_code, course_name, semester, faculty_id) VALUES (?, ?, ?, ?)',
-            [course_code, course_name, semester, faculty_id]
-        );
-        return result.insertId;
+const Course = sequelize.define('Course', {
+    id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
+    },
+    course_code: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    course_name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    semester: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    faculty_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
     }
-
-    static async findAll() {
-        const [rows] = await db.execute('SELECT * FROM courses');
-        return rows;
-    }
-
-    static async findById(id) {
-        const [rows] = await db.execute('SELECT * FROM courses WHERE id = ?', [id]);
-        return rows[0];
-    }
-
-    static async findByFaculty(faculty_id) {
-        const [rows] = await db.execute('SELECT * FROM courses WHERE faculty_id = ?', [faculty_id]);
-        return rows;
-    }
-
-    static async delete(id) {
-        return db.execute('DELETE FROM courses WHERE id = ?', [id]);
-    }
-}
+}, {
+    tableName: 'courses',
+    timestamps: false
+});
 
 module.exports = Course;

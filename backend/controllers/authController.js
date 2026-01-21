@@ -1,54 +1,57 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const User = require('../models/userModel');
 
-const generateToken = (id, role) => {
-    return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '30d' });
-};
-
-exports.registerUser = async (req, res) => {
-    const { name, email, password, role } = req.body;
-
+exports.loginSync = async (req, res) => {
     try {
-        const userExists = await User.findByEmail(email);
-        if (userExists) {
-            return res.status(400).json({ message: 'User already exists' });
+        // req.user is already populated by protect middleware (Firebase Token)
+        const { uid, email, name } = req.user;
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required from provider' });
         }
 
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+        // Domain Logic
+        // Faculty Domain: @faculty.college.edu
+        let role = '';
+        if (email.endsWith('@jaipur.manipal.edu')) {
+            role = 'faculty';
+        } else if (email.endsWith('@muj.manipal.edu')) {
+            role = 'student';
+        } else {
+            // Strict Domain Check
+            return res.status(403).json({ message: 'Unauthorized Email Domain. Only @jaipur.manipal.edu or @muj.manipal.edu allowed.' });
+        }
 
-        const userId = await User.create(name, email, hashedPassword, role || 'faculty');
+        // Check if user exists in DB
+        let user = await User.findOne({ where: { email } });
 
-        res.status(201).json({
-            id: userId,
-            name,
-            email,
-            role: role || 'faculty',
-            token: generateToken(userId, role || 'faculty')
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-exports.loginUser = async (req, res) => {
-    const { email, password } = req.body;
-
-    try {
-        const user = await User.findByEmail(email);
-        if (user && (await bcrypt.compare(password, user.password))) {
-            res.json({
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                token: generateToken(user.id, user.role)
+        if (!user) {
+            // Create new user (Sync)
+            // Password is now null or 'google-auth'
+            user = await User.create({
+                name: req.body.name || name || email.split('@')[0],
+                email,
+                password: 'google-auth',
+                role,
+                firebase_uid: uid
             });
         } else {
-            res.status(401).json({ message: 'Invalid email or password' });
+            // Update firebase_uid if missing?
+            if (!user.firebase_uid) {
+                user.firebase_uid = uid;
+                await user.save();
+            }
         }
+
+        res.json({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            firebase_uid: user.firebase_uid
+        });
+
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error(error);
+        res.status(500).json({ message: 'Server Error during Sync' });
     }
 };

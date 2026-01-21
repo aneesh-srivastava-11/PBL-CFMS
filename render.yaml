@@ -1,0 +1,41 @@
+services:
+  # BACKEND SERVICE
+  - type: web
+    name: pbl-backend
+    env: node
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && node server.js
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: DB_HOST
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: course_file_db
+      - key: NODE_VERSION
+        value: 20.17.0
+      # Secrets (Set these in Render Dashboard manually)
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+
+  # FRONTEND (STATIC SITE)
+  - type: static
+    name: pbl-frontend
+    env: static
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: client/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: pbl-backend
+          property: url
