@@ -164,12 +164,16 @@ exports.generateCoursePDF = async (req, res) => {
             size: 24,
         });
 
-        // Filter for PDFs only for now (as per plan limitations)
-        const pdfFiles = allFiles.filter(f => f.filename.toLowerCase().endsWith('.pdf'));
+        // Filter for PDFs and Images
+        const mergeableFiles = allFiles.filter(f => {
+            if (!f.filename) return false;
+            const ext = f.filename.toLowerCase().split('.').pop();
+            return ['pdf', 'png', 'jpg', 'jpeg'].includes(ext);
+        });
 
-        console.log(`[DEBUG] Found ${pdfFiles.length} PDF files to merge.`);
+        console.log(`[DEBUG] Found ${mergeableFiles.length} mergeable files (PDF/Image).`);
 
-        for (const file of pdfFiles) {
+        for (const file of mergeableFiles) {
             try {
                 let fileBuffer;
                 if (process.env.AWS_BUCKET_NAME) {
@@ -178,21 +182,50 @@ exports.generateCoursePDF = async (req, res) => {
                     continue;
                 } else {
                     const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
-                    console.log(`[DEBUG] Processing local file: ${file.filename}, Path: ${filePath}`);
-
-                    if (fs.existsSync(filePath)) {
-                        fileBuffer = fs.readFileSync(filePath);
-                        const srcPdf = await PDFDocument.load(fileBuffer);
-                        const copiedPages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
-                        copiedPages.forEach(page => mergedPdf.addPage(page));
-                        console.log(`[DEBUG] Merged ${file.filename} success.`);
-                    } else {
-                        console.error(`[DEBUG] File not found at path: ${filePath}`);
+                    if (!fs.existsSync(filePath)) {
+                        console.error(`[DEBUG] File missing on disk: ${filePath}`);
+                        continue;
                     }
+                    fileBuffer = fs.readFileSync(filePath);
                 }
-            } catch (err) {
-                console.error(`[DEBUG] Failed to merge file ${file.filename}:`, err);
-                // Continue to next file
+
+                const ext = file.filename.toLowerCase().split('.').pop();
+
+                if (ext === 'pdf') {
+                    const srcPdf = await PDFDocument.load(fileBuffer);
+                    const copiedPages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
+                    copiedPages.forEach(p => mergedPdf.addPage(p));
+                    console.log(`[DEBUG] Merged PDF: ${file.filename}`);
+                } else if (['png', 'jpg', 'jpeg'].includes(ext)) {
+                    const imagePage = mergedPdf.addPage();
+                    let image;
+                    if (ext === 'png') {
+                        image = await mergedPdf.embedPng(fileBuffer);
+                    } else {
+                        image = await mergedPdf.embedJpg(fileBuffer);
+                    }
+
+                    const { width, height } = image.scale(1);
+                    // Fit image to page (A4 size approx 595x842)
+                    const pageWidth = imagePage.getWidth();
+                    const pageHeight = imagePage.getHeight();
+
+                    // Logic to scale down if too big
+                    const scaleFactor = Math.min((pageWidth - 100) / width, (pageHeight - 100) / height, 1);
+                    const scaledWidth = width * scaleFactor;
+                    const scaledHeight = height * scaleFactor;
+
+                    imagePage.drawImage(image, {
+                        x: (pageWidth - scaledWidth) / 2,
+                        y: (pageHeight - scaledHeight) / 2,
+                        width: scaledWidth,
+                        height: scaledHeight,
+                    });
+                    console.log(`[DEBUG] Embedded Image: ${file.filename}`);
+                }
+
+            } catch (mergeError) {
+                console.error(`[ERROR] Failed to merge file ${file.filename}:`, mergeError);
             }
         }
 

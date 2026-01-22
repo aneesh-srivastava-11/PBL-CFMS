@@ -252,16 +252,28 @@ const Dashboard = () => {
             setShowValidationModal(false);
             setMissingFiles([]);
         } catch (error) {
-            if (error.response && error.response.status === 400 && error.response.data.missing) {
-                // Convert ArrayBuffer to JSON to read error message
-                const decoder = new TextDecoder('utf-8');
-                const jsonString = decoder.decode(error.response.data);
-                const errorData = JSON.parse(jsonString);
+            console.error('Generation failed', error);
 
-                setMissingFiles(errorData.missing);
-                setShowValidationModal(true);
+            if (error.response && error.response.data) {
+                // Convert ArrayBuffer to string
+                try {
+                    const decoder = new TextDecoder('utf-8');
+                    const jsonString = decoder.decode(error.response.data);
+                    const errorData = JSON.parse(jsonString);
+
+                    if (error.response.status === 400 && errorData.missing) {
+                        setMissingFiles(errorData.missing);
+                        setShowValidationModal(true);
+                        return; // Handled
+                    }
+
+                    // Alert other specific errors
+                    alert(errorData.message || 'Failed to generate course file.');
+                } catch (parseError) {
+                    // Fallback if parsing fails
+                    alert('Failed to generate course file. (Parse Error)');
+                }
             } else {
-                console.error('Generation failed', error);
                 alert('Failed to generate course file.');
             }
         } finally {
