@@ -4,10 +4,11 @@ import AuthContext from '../context/AuthContext';
 import axios from 'axios';
 
 const Dashboard = () => {
-    const { user, logout, loading } = useContext(AuthContext);
+    const { user, logout, loading, updateUser } = useContext(AuthContext);
     const navigate = useNavigate();
     const [courses, setCourses] = useState([]);
     const [newCourse, setNewCourse] = useState({ course_code: '', course_name: '', semester: '' });
+    const [studentEmail, setStudentEmail] = useState(''); // Enrollment State
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [file, setFile] = useState(null);
     const [fileType, setFileType] = useState('handout');
@@ -16,6 +17,8 @@ const Dashboard = () => {
     const [showValidationModal, setShowValidationModal] = useState(false);
     const [missingFiles, setMissingFiles] = useState([]);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [expandedFolders, setExpandedFolders] = useState({}); // Folder State
+    const [enrolledStudents, setEnrolledStudents] = useState([]); // Enrolled Students State
 
     const requiredTypes = [
         'handout', 'attendance', 'assignment', 'marks',
@@ -35,8 +38,12 @@ const Dashboard = () => {
     useEffect(() => {
         if (selectedCourse) {
             fetchCourseFiles(selectedCourse.id);
+            if (user && user.is_coordinator) {
+                fetchEnrolledStudents(selectedCourse.id);
+            }
         } else {
             setCourseFiles([]);
+            setEnrolledStudents([]);
         }
     }, [selectedCourse, user]);
 
@@ -57,6 +64,16 @@ const Dashboard = () => {
             setCourseFiles(data);
         } catch (error) {
             console.error('Error fetching files', error);
+        }
+    };
+
+    const fetchEnrolledStudents = async (courseId) => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get(`http://localhost:5000/api/enroll/${courseId}`, config);
+            setEnrolledStudents(data);
+        } catch (error) {
+            console.error('Error fetching enrolled students', error);
         }
     };
 
@@ -94,6 +111,28 @@ const Dashboard = () => {
             fetchCourseFiles(selectedCourse.id);
         } catch (error) {
             setUploadStatus('Upload failed');
+        }
+    };
+
+    const handleDownloadFile = async (e, fileId, fileName) => {
+        e.preventDefault();
+        try {
+            const config = {
+                headers: { Authorization: `Bearer ${user.token}` },
+                responseType: 'blob'
+            };
+            const response = await axios.get(`http://localhost:5000/api/files/${fileId}/download`, config);
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.error('Download failed', error);
+            alert('Download failed');
         }
     };
 
@@ -159,6 +198,32 @@ const Dashboard = () => {
         }
     };
 
+    const handleToggleCoordinator = async () => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.put('http://localhost:5000/api/auth/toggle-coordinator', {}, config);
+            updateUser({ is_coordinator: data.is_coordinator });
+            alert(data.message);
+        } catch (error) {
+            console.error(error);
+            alert('Failed to toggle status');
+        }
+    };
+
+    const handleEnrollStudent = async (e) => {
+        e.preventDefault();
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.post(`http://localhost:5000/api/enroll/${selectedCourse.id}`, { studentEmail }, config);
+            alert('Student enrolled successfully!');
+            fetchEnrolledStudents(selectedCourse.id);
+            setStudentEmail('');
+        } catch (error) {
+            console.error(error);
+            alert(error.response?.data?.message || 'Enrollment failed');
+        }
+    };
+
     const handleGenerateCourseFile = async (force = false) => {
         if (!selectedCourse) return;
         setIsGenerating(true);
@@ -213,6 +278,19 @@ const Dashboard = () => {
                 <h1 style={{ fontSize: '1.25rem', color: 'white' }}>Course File System</h1>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <span style={{ color: 'var(--text-muted)' }}>{user.name} ({user.role})</span>
+                    {user.role === 'faculty' && (
+                        <button
+                            onClick={handleToggleCoordinator}
+                            className="btn"
+                            style={{
+                                background: user.is_coordinator ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                                border: user.is_coordinator ? 'none' : '1px solid rgba(255,255,255,0.2)'
+                            }}
+                            title="Toggle Coordinator Privileges"
+                        >
+                            {user.is_coordinator ? 'Coordinator: ON' : 'Coordinator: OFF'}
+                        </button>
+                    )}
                     <button onClick={logout} className="btn" style={{ background: 'rgba(255,255,255,0.1)' }}>Logout</button>
                 </div>
             </nav>
@@ -287,19 +365,21 @@ const Dashboard = () => {
                             {(user.role === 'faculty') && (
                                 <div style={{ display: 'flex', gap: '1rem' }}>
                                     <button
-                                        className="btn btn-primary"
-                                        onClick={handleDownloadZip}
+                                        className="btn"
                                         style={{ background: 'var(--bg-card)', border: '1px solid var(--primary)', color: 'var(--primary)' }}
+                                        onClick={handleDownloadZip}
                                     >
                                         Download Zip
                                     </button>
-                                    <button
-                                        className="btn btn-primary"
-                                        onClick={() => handleGenerateCourseFile(false)}
-                                        disabled={isGenerating}
-                                    >
-                                        {isGenerating ? 'Generating...' : 'Generate Course File'}
-                                    </button>
+                                    {user.is_coordinator && (
+                                        <button
+                                            className="btn btn-primary"
+                                            onClick={() => handleGenerateCourseFile(false)}
+                                            disabled={isGenerating}
+                                        >
+                                            {isGenerating ? 'Generating...' : 'Generate Course File'}
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -335,80 +415,226 @@ const Dashboard = () => {
 
                         {uploadStatus && <div style={{ color: 'var(--success)', marginBottom: '1rem' }}>{uploadStatus}</div>}
 
-                        {/* Real File List */}
+                        {/* Enroll Student Form (Coordinator Only) - Placed BEFORE the list */}
+                        {user.is_coordinator && (
+                            <div style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                                <h4 style={{ marginBottom: '1rem', color: '#10B981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span>👨‍🎓</span> Manage Enrollment
+                                </h4>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                                    {/* Single Enroll */}
+                                    <div>
+                                        <h5 style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Enroll Single Student</h5>
+                                        <form onSubmit={handleEnrollStudent} style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <input
+                                                type="email"
+                                                className="input-field"
+                                                placeholder="Student Email"
+                                                value={studentEmail}
+                                                onChange={e => setStudentEmail(e.target.value)}
+                                                required
+                                                style={{ flex: 1 }}
+                                            />
+                                            <button type="submit" className="btn btn-primary">Enroll</button>
+                                        </form>
+                                    </div>
+
+                                    {/* Bulk Enroll */}
+                                    <div style={{ paddingLeft: '2rem', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+                                        <h5 style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Bulk Enroll (Excel/XLSX)</h5>
+                                        <form onSubmit={async (e) => {
+                                            e.preventDefault();
+                                            if (!e.target.files[0]) return;
+                                            const formData = new FormData();
+                                            formData.append('file', e.target.files[0]);
+                                            try {
+                                                const token = user.token;
+                                                const config = { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } };
+                                                const res = await axios.post(`http://localhost:5000/api/enroll/${selectedCourse.id}/bulk`, formData, config);
+                                                alert(`Bulk Enrollment Complete:\nSuccess: ${res.data.results.success.length}\nFailed: ${res.data.results.failed.length}`);
+                                                fetchEnrolledStudents(selectedCourse.id);
+                                            } catch (err) {
+                                                console.error(err);
+                                                alert('Bulk upload failed.');
+                                            }
+                                        }}>
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                <input type="file" name="files" accept=".xlsx, .xls" className="input-field" required style={{ flex: 1 }} />
+                                                <button type="submit" className="btn" style={{ background: 'var(--bg-card)', border: '1px solid var(--primary)', color: 'var(--primary)' }}>Upload</button>
+                                            </div>
+                                            <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: '0.5rem' }}>
+                                                Upload an Excel file with emails in the first column.
+                                            </small>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                {/* Enrolled List Preview */}
+                                <div style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+                                    <h5 style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span>Enrolled Students ({enrolledStudents.length})</span>
+                                        <button
+                                            onClick={() => fetchEnrolledStudents(selectedCourse.id)}
+                                            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.8rem' }}
+                                        >
+                                            🔄 Refresh
+                                        </button>
+                                    </h5>
+
+                                    <details style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '4px' }}>
+                                        <summary style={{ padding: '0.75rem', cursor: 'pointer', color: 'white', userSelect: 'none' }}>
+                                            View Student List {enrolledStudents.length > 0 ? '⬇️' : ''}
+                                        </summary>
+                                        <div style={{ maxHeight: '300px', overflowY: 'auto', padding: '0.5rem' }}>
+                                            {enrolledStudents.length === 0 ? (
+                                                <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>No students enrolled yet.</div>
+                                            ) : (
+                                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                                                    <thead>
+                                                        <tr style={{ textAlign: 'left', color: 'var(--text-muted)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                                                            <th style={{ padding: '0.5rem' }}>Name</th>
+                                                            <th style={{ padding: '0.5rem' }}>Email</th>
+                                                            <th style={{ padding: '0.5rem' }}>Section</th>
+                                                            <th style={{ padding: '0.5rem' }}>Sem</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {enrolledStudents.map(s => (
+                                                            <tr key={s.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                                <td style={{ padding: '0.5rem' }}>{s.name || '-'}</td>
+                                                                <td style={{ padding: '0.5rem' }}>{s.email}</td>
+                                                                <td style={{ padding: '0.5rem' }}>{s.section || 'N/A'}</td>
+                                                                <td style={{ padding: '0.5rem' }}>{s.academic_semester || 'N/A'}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            )}
+                                        </div>
+                                    </details>
+                                </div>
+                            </div>
+                        )}
+
                         <div style={{ marginTop: '2rem' }}>
                             <h4 style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>Uploaded Documents</h4>
-                            <div style={{ display: 'grid', gap: '0.5rem' }}>
-                                {courseFiles.length > 0 ? courseFiles.map((doc) => (
-                                    <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                            <div style={{
-                                                width: '40px', height: '40px',
-                                                background: 'rgba(79, 70, 229, 0.1)', color: 'var(--primary)',
-                                                borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase'
+
+                            {courseFiles.length > 0 ? (
+                                Object.entries(courseFiles.reduce((acc, file) => {
+                                    const type = file.file_type || 'other';
+                                    if (!acc[type]) acc[type] = [];
+                                    acc[type].push(file);
+                                    return acc;
+                                }, {})).map(([type, files]) => (
+                                    <div key={type} style={{ marginBottom: '1rem' }}>
+                                        {/* Folder Header */}
+                                        <div
+                                            onClick={() => setExpandedFolders(prev => ({ ...prev, [type]: !prev[type] }))}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                                cursor: 'pointer',
+                                                background: 'rgba(255,255,255,0.05)',
+                                                padding: '1rem',
+                                                borderRadius: '8px',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                transition: 'background 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                                        >
+                                            <span style={{ fontSize: '1.25rem' }}>{expandedFolders[type] ? '📂' : '📁'}</span>
+                                            <h5 style={{
+                                                textTransform: 'capitalize',
+                                                color: 'white',
+                                                margin: 0,
+                                                fontSize: '1rem',
+                                                flex: 1
                                             }}>
-                                                {doc.file_type.substring(0, 3)}
-                                            </div>
-                                            <div>
-                                                <div style={{ fontWeight: '500' }}>{doc.filename}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(doc.uploaded_at).toLocaleDateString()}</div>
-                                            </div>
+                                                {type.replace(/_/g, ' ')}
+                                                <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>({files.length})</span>
+                                            </h5>
+                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{expandedFolders[type] ? '▼' : '▶'}</span>
                                         </div>
 
-                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                            {/* Visibility Toggle (Faculty) */}
-                                            {(user.role === 'faculty') && (
-                                                <button
-                                                    onClick={() => handleToggleVisibility(doc.id)}
-                                                    className="btn"
-                                                    title={doc.is_visible ? 'Visible to Students' : 'Hidden from Students'}
-                                                    style={{
-                                                        padding: '0.4rem',
-                                                        fontSize: '0.875rem',
-                                                        background: doc.is_visible ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-                                                        color: doc.is_visible ? '#6ee7b7' : 'var(--text-muted)',
-                                                        aspectRatio: '1/1',
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                                    }}
-                                                >
-                                                    {doc.is_visible ? '👁️' : '🚫'}
-                                                </button>
-                                            )}
+                                        {/* Expanded Content */}
+                                        {expandedFolders[type] && (
+                                            <div style={{
+                                                display: 'grid', gap: '0.5rem',
+                                                marginTop: '0.5rem',
+                                                paddingLeft: '1rem',
+                                                borderLeft: '2px solid rgba(255,255,255,0.1)',
+                                                marginLeft: '1rem'
+                                            }}>
+                                                {files.map(doc => (
+                                                    <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                            <div style={{
+                                                                width: '40px', height: '40px',
+                                                                background: 'rgba(79, 70, 229, 0.1)', color: 'var(--primary)',
+                                                                borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase'
+                                                            }}>
+                                                                DOC
+                                                            </div>
+                                                            <div>
+                                                                <div style={{ fontWeight: '500' }}>{doc.filename}</div>
+                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(doc.uploaded_at).toLocaleDateString()}</div>
+                                                            </div>
+                                                        </div>
 
-                                            {/* Download Link */}
-                                            <a
-                                                href={`http://localhost:5000/uploads/${doc.s3_key}`}
-                                                download
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="btn"
-                                                style={{ padding: '0.4rem 1rem', fontSize: '0.875rem', background: 'rgba(255,255,255,0.1)', textDecoration: 'none', display: 'inline-block' }}
-                                            >
-                                                Download
-                                            </a>
-                                            {/* Delete Button (Faculty) */}
-                                            {(user.role === 'faculty') && (
-                                                <button
-                                                    onClick={() => handleDeleteFile(doc.id)}
-                                                    className="btn"
-                                                    style={{ padding: '0.4rem 1rem', fontSize: '0.875rem', background: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5' }}
-                                                >
-                                                    Delete
-                                                </button>
-                                            )}
-                                        </div>
+                                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                                            {(user.role === 'faculty') && (
+                                                                <button
+                                                                    onClick={() => handleToggleVisibility(doc.id)}
+                                                                    className="btn"
+                                                                    title={doc.is_visible ? 'Visible to Students' : 'Hidden from Students'}
+                                                                    style={{
+                                                                        padding: '0.4rem',
+                                                                        fontSize: '0.875rem',
+                                                                        background: doc.is_visible ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                                                                        color: doc.is_visible ? '#6ee7b7' : 'var(--text-muted)',
+                                                                        aspectRatio: '1/1',
+                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                                    }}
+                                                                >
+                                                                    {doc.is_visible ? '👁️' : '🚫'}
+                                                                </button>
+                                                            )}
+
+                                                            <button
+                                                                onClick={(e) => handleDownloadFile(e, doc.id, doc.filename)}
+                                                                className="btn"
+                                                                style={{ padding: '0.4rem 1rem', fontSize: '0.875rem', background: 'rgba(255,255,255,0.1)' }}
+                                                            >
+                                                                Download
+                                                            </button>
+
+                                                            {(user.role === 'faculty') && (
+                                                                <button
+                                                                    onClick={() => handleDeleteFile(doc.id)}
+                                                                    className="btn"
+                                                                    style={{ padding: '0.4rem 1rem', fontSize: '0.875rem', background: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5' }}
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                )) : (
-                                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
-                                        No files uploaded yet.
-                                    </div>
-                                )}
-                            </div>
+                                ))
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
+                                    No files uploaded yet.
+                                </div>
+                            )}
                         </div>
-                    </div>
+                    </div >
                 )}
-            </div>
+            </div >
 
             <style>{`
                 @keyframes fadeIn {
@@ -417,56 +643,58 @@ const Dashboard = () => {
                 }
             `}</style>
 
-            {showValidationModal && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center',
-                    zIndex: 1000
-                }}>
-                    <div className="card" style={{ width: '400px', maxWidth: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
-                        <h3 style={{ marginBottom: '1rem', color: 'white' }}>Course File Checklist</h3>
-                        <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-                            The following files are missing. You can force generation, but the course file will be incomplete.
-                        </p>
+            {
+                showValidationModal && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                        zIndex: 1000
+                    }}>
+                        <div className="card" style={{ width: '400px', maxWidth: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
+                            <h3 style={{ marginBottom: '1rem', color: 'white' }}>Course File Checklist</h3>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+                                The following files are missing. You can force generation, but the course file will be incomplete.
+                            </p>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
-                            {requiredTypes.map(type => {
-                                const isMissing = missingFiles.includes(type);
-                                return (
-                                    <div key={type} style={{
-                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                        padding: '0.5rem', borderRadius: '4px',
-                                        background: isMissing ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                                        border: `1px solid ${isMissing ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
-                                    }}>
-                                        <span style={{ textTransform: 'capitalize' }}>{type.replace('_', ' ')}</span>
-                                        <span>{isMissing ? '❌' : '✅'}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
+                                {requiredTypes.map(type => {
+                                    const isMissing = missingFiles.includes(type);
+                                    return (
+                                        <div key={type} style={{
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                            padding: '0.5rem', borderRadius: '4px',
+                                            background: isMissing ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                                            border: `1px solid ${isMissing ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
+                                        }}>
+                                            <span style={{ textTransform: 'capitalize' }}>{type.replace('_', ' ')}</span>
+                                            <span>{isMissing ? '❌' : '✅'}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
 
-                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                            <button
-                                className="btn"
-                                style={{ background: 'transparent' }}
-                                onClick={() => setShowValidationModal(false)}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                className="btn btn-primary"
-                                style={{ background: 'var(--warning)', color: 'black' }}
-                                onClick={() => handleGenerateCourseFile(true)}
-                                disabled={isGenerating}
-                            >
-                                {isGenerating ? 'Generating...' : 'Force Generate'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                                <button
+                                    className="btn"
+                                    style={{ background: 'transparent' }}
+                                    onClick={() => setShowValidationModal(false)}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    className="btn btn-primary"
+                                    style={{ background: 'var(--warning)', color: 'black' }}
+                                    onClick={() => handleGenerateCourseFile(true)}
+                                    disabled={isGenerating}
+                                >
+                                    {isGenerating ? 'Generating...' : 'Force Generate'}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

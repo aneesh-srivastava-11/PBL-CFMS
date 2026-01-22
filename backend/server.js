@@ -10,6 +10,7 @@ const rateLimit = require('express-rate-limit');
 
 
 const db = require('./config/db');
+require('./models'); // Initialize associations
 
 const app = express();
 const PORT = process.env.PORT || 5000;

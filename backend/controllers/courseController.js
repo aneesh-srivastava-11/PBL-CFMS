@@ -118,8 +118,11 @@ exports.generateCoursePDF = async (req, res) => {
     const courseId = req.params.id;
     const { force } = req.body; // force=true to skip validation
 
+    console.log(`[DEBUG] generateCoursePDF Entry. User: ${req.user.id}, Role: ${req.user.role}, Coordinator: ${req.user.is_coordinator}`);
+
     // Check Coordinator Permission
     if (!req.user.is_coordinator && req.user.role !== 'admin') {
+        console.log(`[DEBUG] Authorization failed. is_coordinator: ${req.user.is_coordinator}`);
         return res.status(403).json({ message: 'Only Course Coordinators can generate files.' });
     }
 
@@ -147,6 +150,8 @@ exports.generateCoursePDF = async (req, res) => {
             });
         }
 
+        console.log(`[DEBUG] generateCoursePDF: Found ${allFiles.length} files. Missing types: ${missingTypes.join(', ')}`);
+
         // 2. PDF Merge Logic
         const mergedPdf = await PDFDocument.create();
 
@@ -162,23 +167,31 @@ exports.generateCoursePDF = async (req, res) => {
         // Filter for PDFs only for now (as per plan limitations)
         const pdfFiles = allFiles.filter(f => f.filename.toLowerCase().endsWith('.pdf'));
 
+        console.log(`[DEBUG] Found ${pdfFiles.length} PDF files to merge.`);
+
         for (const file of pdfFiles) {
             try {
                 let fileBuffer;
                 if (process.env.AWS_BUCKET_NAME) {
                     // S3 logic placeholder
+                    console.log(`[DEBUG] Skipping S3 file: ${file.filename}`);
                     continue;
                 } else {
                     const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
+                    console.log(`[DEBUG] Processing local file: ${file.filename}, Path: ${filePath}`);
+
                     if (fs.existsSync(filePath)) {
                         fileBuffer = fs.readFileSync(filePath);
                         const srcPdf = await PDFDocument.load(fileBuffer);
                         const copiedPages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
                         copiedPages.forEach(page => mergedPdf.addPage(page));
+                        console.log(`[DEBUG] Merged ${file.filename} success.`);
+                    } else {
+                        console.error(`[DEBUG] File not found at path: ${filePath}`);
                     }
                 }
             } catch (err) {
-                console.error(`Failed to merge file ${file.filename}:`, err);
+                console.error(`[DEBUG] Failed to merge file ${file.filename}:`, err);
                 // Continue to next file
             }
         }

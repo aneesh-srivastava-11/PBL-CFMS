@@ -32,6 +32,14 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING,
         unique: true,
         allowNull: true
+    },
+    section: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    academic_semester: {
+        type: DataTypes.STRING,
+        allowNull: true
     }
 }, {
     tableName: 'users',
