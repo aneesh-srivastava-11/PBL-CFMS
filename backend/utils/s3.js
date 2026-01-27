@@ -4,6 +4,8 @@ const fs = require('fs');
 
 const s3 = new S3Client({
     region: process.env.AWS_REGION,
+    endpoint: process.env.AWS_ENDPOINT, // Support for Supabase/MinIO
+    forcePathStyle: true, // Required for Supabase
     credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
