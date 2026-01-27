@@ -1,31 +1,39 @@
-const AWS = require('aws-sdk');
+const { S3Client, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { Upload } = require('@aws-sdk/lib-storage');
 const fs = require('fs');
 
-const s3 = new AWS.S3({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: process.env.AWS_REGION
+const s3 = new S3Client({
+    region: process.env.AWS_REGION,
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
 });
 
 const uploadFile = (file) => {
     const fileStream = fs.createReadStream(file.path);
 
-    const uploadParams = {
-        Bucket: process.env.AWS_BUCKET_NAME,
-        Body: fileStream,
-        Key: file.filename
-    };
+    const upload = new Upload({
+        client: s3,
+        params: {
+            Bucket: process.env.AWS_BUCKET_NAME,
+            Key: file.filename,
+            Body: fileStream,
+        },
+    });
 
-    return s3.upload(uploadParams).promise();
+    return upload.done();
 };
 
-const getFileStream = (fileKey) => {
+const getFileStream = async (fileKey) => {
     const downloadParams = {
         Key: fileKey,
         Bucket: process.env.AWS_BUCKET_NAME
     };
 
-    return s3.getObject(downloadParams).createReadStream();
+    const command = new GetObjectCommand(downloadParams);
+    const response = await s3.send(command);
+    return response.Body; // Requesting the stream from the response
 };
 
 const deleteFile = (fileKey) => {
@@ -34,7 +42,8 @@ const deleteFile = (fileKey) => {
         Bucket: process.env.AWS_BUCKET_NAME
     };
 
-    return s3.deleteObject(deleteParams).promise();
+    const command = new DeleteObjectCommand(deleteParams);
+    return s3.send(command);
 };
 
 module.exports = { uploadFile, getFileStream, deleteFile };

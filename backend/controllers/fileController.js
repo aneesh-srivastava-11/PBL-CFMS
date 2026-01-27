@@ -114,10 +114,15 @@ exports.deleteFileHandler = async (req, res) => {
     }
 };
 
-exports.getFileHandler = (req, res) => {
-    const key = req.params.key;
-    const readStream = getFileStream(key);
-    readStream.pipe(res);
+exports.getFileHandler = async (req, res) => {
+    try {
+        const key = req.params.key;
+        const readStream = await getFileStream(key);
+        readStream.pipe(res);
+    } catch (error) {
+        console.error('File Stream Error:', error);
+        res.status(404).json({ message: 'File not found or error accessing S3' });
+    }
 };
 
 exports.downloadFileHandler = async (req, res) => {
@@ -130,9 +135,14 @@ exports.downloadFileHandler = async (req, res) => {
 
         if (process.env.AWS_BUCKET_NAME) {
             // S3 Download
-            const readStream = getFileStream(file.s3_key);
-            res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
-            readStream.pipe(res);
+            try {
+                const readStream = await getFileStream(file.s3_key);
+                res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+                readStream.pipe(res);
+            } catch (s3err) {
+                console.error('S3 Download Error:', s3err);
+                res.status(500).json({ message: 'Error retrieving file from Cloud' });
+            }
         } else {
             // Local Download
             const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
