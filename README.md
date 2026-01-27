@@ -9,7 +9,7 @@
 
 ### 1. Database Setup
 1. Open your MySQL client (Workbench, CLI, etc.).
-2. Run the SQL script located at `backend/database.sql`.
+2. Run the SQL script located at `backend/schema.sql`.
 
 ### 2. Backend Setup
 1. Navigate to the backend folder:

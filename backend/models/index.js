@@ -17,13 +17,4 @@ User.belongsToMany(Course, { through: Enrollment, foreignKey: 'student_id', as: 
 Course.belongsToMany(User, { through: Enrollment, foreignKey: 'course_id', as: 'students' });
 
 // Sync Function
-const syncDatabase = async () => {
-    try {
-        await sequelize.sync({ force: true });
-        console.log('>>> DATABASE NUKED & SYNCED <<<');
-    } catch (error) {
-        console.error('Sync Error:', error);
-    }
-};
-
-module.exports = { User, Course, File, Enrollment, syncDatabase };
+module.exports = { User, Course, File, Enrollment };
