@@ -52,12 +52,8 @@ exports.loginSync = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Login Sync Error:', error);
-        res.status(500).json({
-            message: 'Server Error during Sync',
-            error: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        });
+        console.error(error);
+        res.status(500).json({ message: 'Server Error during Sync' });
     }
 };
 

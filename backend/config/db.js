@@ -35,8 +35,7 @@ const connectDB = async () => {
         console.log('Database Synced');
     } catch (error) {
         console.error('Database Connection Error:', error);
-        // Do not exit process in serverless environment, just log it.
-        // process.exit(1); 
+        process.exit(1);
     }
 };
 
