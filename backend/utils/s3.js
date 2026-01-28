@@ -3,12 +3,12 @@ const { Upload } = require('@aws-sdk/lib-storage');
 const fs = require('fs');
 
 const s3 = new S3Client({
-    region: process.env.AWS_REGION,
+    region: process.env.AWS_REGION || 'us-east-1',
     endpoint: process.env.AWS_ENDPOINT, // Support for Supabase/MinIO
     forcePathStyle: true, // Required for Supabase
     credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'dummy-key',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'dummy-secret'
     }
 });
 
