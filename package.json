@@ -1,0 +1,11 @@
+{
+    "name": "project-root",
+    "private": true,
+    "scripts": {
+        "postinstall": "cd backend && npm install && cd ../client && npm install"
+    },
+    "workspaces": [
+        "backend",
+        "client"
+    ]
+}
