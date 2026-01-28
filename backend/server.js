@@ -10,7 +10,15 @@ const rateLimit = require('express-rate-limit');
 
 
 const db = require('./config/db');
-require('./models'); // Initialize associations
+
+// Safe Model Initialization
+try {
+    require('./models'); // Initialize associations
+    console.log("Models initialized");
+} catch (error) {
+    console.error("Model Initialization Failed:", error);
+    // Continue execution to at least show error page
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
