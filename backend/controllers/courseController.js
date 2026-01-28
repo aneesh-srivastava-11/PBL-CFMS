@@ -58,6 +58,7 @@ exports.getCourseById = async (req, res) => {
 const archiver = require('archiver');
 const fs = require('fs');
 const path = require('path');
+const { getFileStream } = require('../utils/s3');
 
 exports.downloadCourseZip = async (req, res) => {
     try {
@@ -177,9 +178,21 @@ exports.generateCoursePDF = async (req, res) => {
             try {
                 let fileBuffer;
                 if (process.env.AWS_BUCKET_NAME) {
-                    // S3 logic placeholder
-                    console.log(`[DEBUG] Skipping S3 file: ${file.filename}`);
-                    continue;
+                    // S3/Supabase Logic
+                    try {
+                        // Fetch stream from S3
+                        const stream = await getFileStream(file.s3_key);
+                        // Convert Stream to Buffer
+                        const chunks = [];
+                        for await (const chunk of stream) {
+                            chunks.push(chunk);
+                        }
+                        fileBuffer = Buffer.concat(chunks);
+                        console.log(`[DEBUG] Fetched from S3: ${file.filename}, Size: ${fileBuffer.length}`);
+                    } catch (s3Error) {
+                        console.error(`[ERROR] Failed to fetch from S3: ${file.filename}`, s3Error);
+                        continue; // Skip this file
+                    }
                 } else {
                     const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
                     if (!fs.existsSync(filePath)) {
