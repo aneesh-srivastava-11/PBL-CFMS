@@ -6,7 +6,21 @@ import { getApiUrl } from '../config';
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    // ... existing code ...
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const userInfo = localStorage.getItem('userInfo');
+        if (userInfo) {
+            try {
+                setUser(JSON.parse(userInfo));
+            } catch (error) {
+                console.error("Failed to parse user info:", error);
+                localStorage.removeItem('userInfo');
+            }
+        }
+        setLoading(false);
+    }, []);
     const login = async (firebaseToken, name = '') => {
         try {
             const API_URL = getApiUrl();
