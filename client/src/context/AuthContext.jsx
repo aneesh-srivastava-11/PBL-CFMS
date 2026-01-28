@@ -1,29 +1,17 @@
 import { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
+import { getApiUrl } from '../config';
+
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const userInfo = localStorage.getItem('userInfo');
-        if (userInfo) {
-            try {
-                setUser(JSON.parse(userInfo));
-            } catch (error) {
-                console.error("Failed to parse user info:", error);
-                localStorage.removeItem('userInfo');
-            }
-        }
-        setLoading(false);
-    }, []);
-
+    // ... existing code ...
     const login = async (firebaseToken, name = '') => {
         try {
+            const API_URL = getApiUrl();
             // Send Firebase Token (and optional name) to Backend
-            const { data } = await axios.post('http://localhost:5000/api/auth/login-sync', { name }, {
+            const { data } = await axios.post(`${API_URL}/api/auth/login-sync`, { name }, {
                 headers: {
                     Authorization: `Bearer ${firebaseToken}`
                 }

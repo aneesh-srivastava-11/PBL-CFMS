@@ -3,10 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import AuthContext from '../context/AuthContext';
 import axios from 'axios';
 
+import { getApiUrl } from '../config';
+
 const Dashboard = () => {
     const { user, logout, loading, updateUser } = useContext(AuthContext);
     const navigate = useNavigate();
     const [courses, setCourses] = useState([]);
+    const [error, setError] = useState('');
+
+    // Dynamic API URL
+    const API_URL = getApiUrl();
     const [newCourse, setNewCourse] = useState({ course_code: '', course_name: '', semester: '' });
     const [studentEmail, setStudentEmail] = useState(''); // Enrollment State
     const [selectedCourse, setSelectedCourse] = useState(null);
@@ -50,7 +56,7 @@ const Dashboard = () => {
     const fetchCourses = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/courses', config);
+            const { data } = await axios.get('${API_URL}/api/courses', config);
             setCourses(data);
         } catch (error) {
             console.error('Error fetching courses', error);
@@ -60,7 +66,7 @@ const Dashboard = () => {
     const fetchCourseFiles = async (courseId) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`http://localhost:5000/api/files/course/${courseId}`, config);
+            const { data } = await axios.get(`${API_URL}/api/files/course/${courseId}`, config);
             setCourseFiles(data);
         } catch (error) {
             console.error('Error fetching files', error);
@@ -70,7 +76,7 @@ const Dashboard = () => {
     const fetchEnrolledStudents = async (courseId) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`http://localhost:5000/api/enroll/${courseId}`, config);
+            const { data } = await axios.get(`${API_URL}/api/enroll/${courseId}`, config);
             setEnrolledStudents(data);
         } catch (error) {
             console.error('Error fetching enrolled students', error);
@@ -81,7 +87,7 @@ const Dashboard = () => {
         e.preventDefault();
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post('http://localhost:5000/api/courses', newCourse, config);
+            await axios.post('${API_URL}/api/courses', newCourse, config);
             setNewCourse({ course_code: '', course_name: '', semester: '' });
             fetchCourses();
         } catch (error) {
@@ -105,7 +111,7 @@ const Dashboard = () => {
                     Authorization: `Bearer ${user.token}`
                 }
             };
-            const { data } = await axios.post('http://localhost:5000/api/files/upload', formData, config);
+            const { data } = await axios.post('${API_URL}/api/files/upload', formData, config);
             setUploadStatus(`Uploaded: ${data.filePath}`);
             setFile(null);
             fetchCourseFiles(selectedCourse.id);
@@ -121,7 +127,7 @@ const Dashboard = () => {
                 headers: { Authorization: `Bearer ${user.token}` },
                 responseType: 'blob'
             };
-            const response = await axios.get(`http://localhost:5000/api/files/${fileId}/download`, config);
+            const response = await axios.get(`${API_URL}/api/files/${fileId}/download`, config);
 
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
@@ -142,7 +148,7 @@ const Dashboard = () => {
                 headers: { Authorization: `Bearer ${user.token}` },
                 responseType: 'blob'
             };
-            const response = await axios.get(`http://localhost:5000/api/courses/${selectedCourse.id}/download`, config);
+            const response = await axios.get(`${API_URL}/api/courses/${selectedCourse.id}/download`, config);
 
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
@@ -161,7 +167,7 @@ const Dashboard = () => {
         if (!window.confirm('Are you sure you want to delete this file?')) return;
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/files/${fileId}`, config);
+            await axios.delete(`${API_URL}/api/files/${fileId}`, config);
             fetchCourseFiles(selectedCourse.id);
         } catch (error) {
             console.error('Delete failed', error);
@@ -172,7 +178,7 @@ const Dashboard = () => {
     const handleDeleteCourse = async (courseId) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/courses/${courseId}`, config);
+            await axios.delete(`${API_URL}/api/courses/${courseId}`, config);
 
             // If the deleted course was selected, deselect it
             if (selectedCourse?.id === courseId) {
@@ -190,7 +196,7 @@ const Dashboard = () => {
     const handleToggleVisibility = async (fileId) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.patch(`http://localhost:5000/api/files/${fileId}/visibility`, {}, config);
+            await axios.patch(`${API_URL}/api/files/${fileId}/visibility`, {}, config);
             fetchCourseFiles(selectedCourse.id);
         } catch (error) {
             console.error('Visibility toggle failed', error);
@@ -201,7 +207,7 @@ const Dashboard = () => {
     const handleToggleCoordinator = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.put('http://localhost:5000/api/auth/toggle-coordinator', {}, config);
+            const { data } = await axios.put('${API_URL}/api/auth/toggle-coordinator', {}, config);
             updateUser({ is_coordinator: data.is_coordinator });
             alert(data.message);
         } catch (error) {
@@ -214,7 +220,7 @@ const Dashboard = () => {
         e.preventDefault();
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post(`http://localhost:5000/api/enroll/${selectedCourse.id}`, { studentEmail }, config);
+            await axios.post(`${API_URL}/api/enroll/${selectedCourse.id}`, { studentEmail }, config);
             alert('Student enrolled successfully!');
             fetchEnrolledStudents(selectedCourse.id);
             setStudentEmail('');
@@ -234,7 +240,7 @@ const Dashboard = () => {
             };
             // Send force flag
             const response = await axios.post(
-                `http://localhost:5000/api/courses/${selectedCourse.id}/generate-pdf`,
+                `${API_URL}/api/courses/${selectedCourse.id}/generate-pdf`,
                 { force },
                 config
             );
@@ -463,7 +469,7 @@ const Dashboard = () => {
                                             try {
                                                 const token = user.token;
                                                 const config = { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } };
-                                                const res = await axios.post(`http://localhost:5000/api/enroll/${selectedCourse.id}/bulk`, formData, config);
+                                                const res = await axios.post(`${API_URL}/api/enroll/${selectedCourse.id}/bulk`, formData, config);
                                                 alert(`Bulk Enrollment Complete:\nSuccess: ${res.data.results.success.length}\nFailed: ${res.data.results.failed.length}`);
                                                 fetchEnrolledStudents(selectedCourse.id);
                                             } catch (err) {
