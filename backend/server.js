@@ -1,108 +1,66 @@
 const express = require('express');
+require('dotenv').config();
+const path = require('path'); // Added path module
 const cors = require('cors');
 const helmet = require('helmet');
 const xss = require('xss-clean');
 const hpp = require('hpp');
 const rateLimit = require('express-rate-limit');
-const path = require('path');
-require('dotenv').config();
+
+
+
+const db = require('./config/db');
+
+// Safe Model Initialization
+try {
+    require('./models'); // Initialize associations
+    console.log("Models initialized");
+} catch (error) {
+    console.error("Model Initialization Failed:", error);
+    // Continue execution to at least show error page
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ============================================
-// 1. CRASH-PROOF STATUS ROUTE
-// ============================================
-app.get('/api/status', async (req, res) => {
-    const status = {
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-        env: process.env.NODE_ENV,
-        checks: {}
-    };
+// Security Middleware
+app.use(helmet()); // Set Security Headers
+app.use(xss()); // Prevent XSS Attacks
+app.use(hpp()); // Prevent HTTP Parameter Pollution
 
-    // Check DB
-    try {
-        const db = require('./config/db');
-        await db.authenticate();
-        status.checks.database = 'Connected';
-    } catch (e) {
-        status.checks.database = `Failed: ${e.message}`;
-        status.status = 'degraded';
-    }
+// Rate Limiting
+const limiter = rateLimit({
+    windowMs: 10 * 60 * 1000, // 10 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: { message: 'Too many requests from this IP, please try again after 10 minutes' }
+});
+app.use(limiter);
 
-    // Check Firebase
-    try {
-        const admin = require('./config/firebaseAdmin');
-        status.checks.firebase = admin.apps.length ? 'Initialized' : 'Not Initialized';
-    } catch (e) {
-        status.checks.firebase = `Failed: ${e.message}`;
-        status.status = 'degraded';
-    }
+// Regular Middleware
+app.use(cors());
+app.use(express.json()); // Body parser should come after security headers but generally before XSS clean if possible, but xss-clean works on body
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-    // Check Env
-    status.checks.env_vars = {
-        DB_URL: !!process.env.DATABASE_URL,
-        FIREBASE_KEY: !!process.env.FIREBASE_PRIVATE_KEY
-    };
+// Routes Placeholder
+// Serve Static frontend files
+app.use(express.static(path.join(__dirname, '../client/dist')));
 
-    res.json(status);
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/files', require('./routes/fileRoutes'));
+app.use('/api/courses', require('./routes/courseRoutes'));
+app.use('/api/enroll', require('./routes/enrollmentRoutes'));
+app.use('/api/status', require('./routes/statusRoutes')); // Diagnostic Route
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist', 'index.html'));
 });
 
-// ============================================
-// 2. MIDDLEWARE
-// ============================================
-app.use(helmet());
-app.use(xss());
-app.use(hpp());
-app.use(cors());
-app.use(express.json());
-
-// ============================================
-// 3. SAFE MODULE LOADING
-// ============================================
-const safeRequire = (path, name) => {
-    try {
-        return require(path);
-    } catch (e) {
-        console.error(`FAILED TO LOAD ${name}:`, e);
-        return (req, res) => res.status(500).json({
-            error: `${name} failed to load`,
-            details: e.message
-        });
-    }
-};
-
-// Initialize Models (Fail silently log)
-try {
-    require('./models');
-    console.log("Models Initialized");
-} catch (e) {
-    console.error("Models Failed:", e.message);
-}
-
-// Routes
-app.use('/api/auth', safeRequire('./routes/authRoutes', 'Auth Routes'));
-app.use('/api/files', safeRequire('./routes/fileRoutes', 'File Routes'));
-app.use('/api/courses', safeRequire('./routes/courseRoutes', 'Course Routes'));
-app.use('/api/enroll', safeRequire('./routes/enrollmentRoutes', 'Enrollment Routes'));
-
-// Static Files
-try {
-    app.use(express.static(path.join(__dirname, '../client/dist')));
-    app.get('*', (req, res) => {
-        if (req.path.startsWith('/api')) return res.status(404).json({ message: 'API Route Not Found' });
-        res.sendFile(path.resolve(__dirname, '../client/dist', 'index.html'));
-    });
-} catch (e) {
-    console.error("Static File Serving Error:", e);
-}
-
-// ============================================
-// 4. EXPORT
-// ============================================
+// For Vercel, we export the app
 module.exports = app;
 
+// Only listen if running locally (not imported)
 if (require.main === module) {
-    app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
 }
