@@ -4,23 +4,21 @@ services:
     name: pbl-backend
     env: node
     plan: free
-    buildCommand: cd client && npm install && npm run build && cd ../backend && npm install
+    buildCommand: cd backend && npm install
     startCommand: cd backend && node server.js
     envVars:
       - key: PORT
         value: 5000
-      - key: DATABASE_URL
+      - key: DB_HOST
         sync: false
-      - key: AWS_ACCESS_KEY_ID
+      - key: DB_USER
         sync: false
-      - key: AWS_SECRET_ACCESS_KEY
+      - key: DB_PASSWORD
         sync: false
-      - key: AWS_REGION
-        value: us-east-1
-      - key: AWS_BUCKET_NAME
-        value: uploads
-      - key: AWS_ENDPOINT
-        sync: false
+      - key: DB_NAME
+        value: course_file_db
+      - key: NODE_VERSION
+        value: 20.17.0
       # Secrets (Set these in Render Dashboard manually)
       - key: FIREBASE_PRIVATE_KEY
         sync: false
@@ -28,5 +26,16 @@ services:
         sync: false
       - key: FIREBASE_PROJECT_ID
         sync: false
-      - key: NODE_VERSION
-        value: 20.17.0
+
+  # FRONTEND (STATIC SITE)
+  - type: static
+    name: pbl-frontend
+    env: static
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: client/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: pbl-backend
+          property: url

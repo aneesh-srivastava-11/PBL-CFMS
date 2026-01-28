@@ -34,24 +34,15 @@ app.use(express.json()); // Body parser should come after security headers but g
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes Placeholder
-// Serve Static frontend files
-app.use(express.static(path.join(__dirname, '../client/dist')));
+app.get('/', (req, res) => {
+    res.send('API is running...');
+});
 
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/files', require('./routes/fileRoutes'));
 app.use('/api/courses', require('./routes/courseRoutes'));
 app.use('/api/enroll', require('./routes/enrollmentRoutes'));
 
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/dist', 'index.html'));
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
-
-// For Vercel, we export the app
-module.exports = app;
-
-// Only listen if running locally (not imported)
-if (require.main === module) {
-    app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-    });
-}
