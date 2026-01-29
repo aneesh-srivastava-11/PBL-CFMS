@@ -1,7 +1,7 @@
 import { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
     const login = async (firebaseToken, name = '') => {
         try {
             // Send Firebase Token (and optional name) to Backend
-            const { data } = await axios.post('http://localhost:5000/api/auth/login-sync', { name }, {
+            const { data } = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/login-sync`, { name }, {
                 headers: {
                     Authorization: `Bearer ${firebaseToken}`
                 }
@@ -64,4 +64,4 @@ export const AuthProvider = ({ children }) => {
     );
 };
 
-export default AuthContext;
+
