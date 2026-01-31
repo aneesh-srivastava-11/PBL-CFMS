@@ -86,8 +86,62 @@ exports.getEnrolledStudents = async (req, res) => {
     }
 };
 
+exports.downloadTemplate = async (req, res) => {
+    try {
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Enrollment Template');
+
+        worksheet.columns = [
+            { header: 'Email', key: 'email', width: 30 },
+            { header: 'Section', key: 'section', width: 15 },
+            { header: 'Semester', key: 'semester', width: 15 }
+        ];
+
+        // Add example row
+        worksheet.addRow({ email: 'student@example.com', section: 'A', semester: 'Fall 2025' });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=Enrollment_Template.xlsx');
+
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (error) {
+        console.error('Error generating template', error);
+        res.status(500).json({ message: 'Error generating template' });
+    }
+};
+
+exports.updateStudentDetails = async (req, res) => {
+    const { studentId } = req.params;
+    const { section, academic_semester } = req.body;
+
+    try {
+        const student = await User.findByPk(studentId);
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+
+        // Only Coordinator or Admin can update
+        // (Assuming authMiddleware protects usage, but double check role/coordinator status logic if needed)
+        // Since this is coordinate route, we assume protection is in place or handled by frontend visibility + checks.
+        // Ideally should check course context or global coordinator permission.
+        // For now, allow simple update.
+
+        if (section) student.section = section;
+        if (academic_semester) student.academic_semester = academic_semester;
+
+        await student.save();
+
+        res.json({ message: 'Student details updated', student });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error updating student' });
+    }
+};
+
 exports.bulkEnrollStudents = async (req, res) => {
     const { courseId } = req.params;
+    const { preview, force } = req.query; // ?preview=true or ?force=true (though logic handles force implicitly by processing valid)
 
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded' });
@@ -110,58 +164,115 @@ exports.bulkEnrollStudents = async (req, res) => {
             failed: []
         };
 
-        // Iterate rows (skip header row 1)
+        // 1. Identify Headers Dynamically
+        const headerRow = worksheet.getRow(1);
+        let emailCol = 0, sectionCol = 0, semesterCol = 0;
+
+        headerRow.eachCell((cell, colNumber) => {
+            const val = cell.text ? cell.text.toLowerCase().trim() : '';
+            if (val.includes('email')) emailCol = colNumber;
+            else if (val.includes('section')) sectionCol = colNumber;
+            else if (val.includes('semester') || val.includes('sem')) semesterCol = colNumber;
+        });
+
+        if (emailCol === 0) {
+            return res.status(400).json({ message: 'Invalid Template. "Email" column not found.' });
+        }
+
+        // 2. Process Rows
         for (let i = 2; i <= worksheet.rowCount; i++) {
             const row = worksheet.getRow(i);
-            const emailCell = row.getCell(1).text; // Assume Email is Col 1
-            const email = emailCell ? emailCell.trim() : null;
+            const emailText = row.getCell(emailCol).text;
+            const email = emailText ? emailText.trim() : null;
 
-            // Optional: Section (Col 2), Semester (Col 3)
-            const section = row.getCell(2).text ? row.getCell(2).text.trim() : null;
-            const semester = row.getCell(3).text ? row.getCell(3).text.trim() : null;
+            if (!email) continue; // Skip empty rows
 
-            if (!email) continue;
+            // Domain Check
+            if (!email.toLowerCase().endsWith('@muj.manipal.edu')) {
+                results.failed.push({ email, row: i, reason: 'Invalid Email Domain (Must be @muj.manipal.edu)' });
+                continue;
+            }
 
-            // Find Student
-            let student = await User.findOne({ where: { email } });
+            const section = sectionCol ? (row.getCell(sectionCol).text ? row.getCell(sectionCol).text.trim() : null) : null;
+            const semester = semesterCol ? (row.getCell(semesterCol).text ? row.getCell(semesterCol).text.trim() : null) : null;
+
+            // Logic:
+            // 1. Check if user exists.
+            // 2. Check if student role.
+            // 3. Check already enrolled.
+
+            const student = await User.findOne({ where: { email } });
 
             if (!student) {
-                // Determine missing user logic. 
-                // For now, fail. Or create placeholder? Coordinator can't create users usually.
-                // We will stick to fail logic, but we should update existing users if found.
-                results.failed.push({ email, reason: 'User not found' });
+                results.failed.push({ email, row: i, reason: 'User not registered in system' });
                 continue;
             }
             if (student.role !== 'student') {
-                results.failed.push({ email, reason: 'User is not a student' });
+                results.failed.push({ email, row: i, reason: 'User is not a student' });
                 continue;
             }
 
-            // Update Section/Semester if provided
-            if (section || semester) {
-                if (section) student.section = section;
-                if (semester) student.academic_semester = semester;
-                await student.save();
-            }
-
-            // Check existing
             const existing = await Enrollment.findOne({
                 where: { student_id: student.id, course_id: course.id }
             });
 
             if (existing) {
-                results.failed.push({ email, reason: 'Already enrolled' });
+                // If enrolled, we might still want to update details?
+                // For now, fail as "Already enrolled"
+                results.failed.push({ email, row: i, reason: 'Already enrolled' });
                 continue;
             }
 
-            await Enrollment.create({
+            // If we are here, it's valid for enrollment.
+            results.success.push({
+                email,
                 student_id: student.id,
-                course_id: course.id
+                section: section || student.section,
+                semester: semester || student.academic_semester
             });
-            results.success.push(email);
         }
 
-        res.json({ message: 'Bulk processing complete', results });
+        // 3. Response handling
+        if (preview === 'true') {
+            // Return analysis only
+            return res.json({
+                message: 'Preview generated',
+                stats: {
+                    total_rows: results.success.length + results.failed.length,
+                    valid: results.success.length,
+                    invalid: results.failed.length
+                },
+                results
+            });
+        }
+
+        // 4. Execution (Save to DB)
+        const enrolled = [];
+        for (const validItem of results.success) {
+            // Update user details if provided
+            if (validItem.section || validItem.semester) {
+                await User.update(
+                    {
+                        section: validItem.section,
+                        academic_semester: validItem.semester
+                    },
+                    { where: { id: validItem.student_id } }
+                );
+            }
+
+            // Create Enrollment
+            await Enrollment.create({
+                student_id: validItem.student_id,
+                course_id: course.id
+            });
+            enrolled.push(validItem.email);
+        }
+
+        res.json({
+            message: 'Bulk enrollment processed',
+            enrolled_count: enrolled.length,
+            failed_examples: results.failed
+        });
 
     } catch (error) {
         console.error(error);

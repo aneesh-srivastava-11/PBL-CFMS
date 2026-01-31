@@ -22,6 +22,13 @@ const Dashboard = () => {
     const [expandedFolders, setExpandedFolders] = useState({}); // Folder State
     const [enrolledStudents, setEnrolledStudents] = useState([]); // Enrolled Students State
 
+    // Bulk Upload & Edit State
+    const [previewData, setPreviewData] = useState(null);
+    const [showBulkPreviewModal, setShowBulkPreviewModal] = useState(false);
+    const [pendingBulkFile, setPendingBulkFile] = useState(null);
+    const [studentToEdit, setStudentToEdit] = useState(null);
+    const [editForm, setEditForm] = useState({ section: '', academic_semester: '' });
+
     const requiredTypes = [
         'handout', 'attendance', 'assignment', 'marks',
         'academic_feedback', 'action_taken', 'exam_paper',
@@ -436,6 +443,7 @@ const Dashboard = () => {
                         {uploadStatus && <div style={{ color: 'var(--success)', marginBottom: '1rem' }}>{uploadStatus}</div>}
 
                         {/* Enroll Student Form (Coordinator Only) - Placed BEFORE the list */}
+                        {/* Enroll Student Form (Coordinator Only) - Placed BEFORE the list */}
                         {user.is_coordinator && (
                             <div style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                                 <h4 style={{ marginBottom: '1rem', color: '#10B981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -462,30 +470,47 @@ const Dashboard = () => {
 
                                     {/* Bulk Enroll */}
                                     <div style={{ paddingLeft: '2rem', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
-                                        <h5 style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Bulk Enroll (Excel/XLSX)</h5>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                            <h5 style={{ color: 'var(--text-muted)', margin: 0 }}>Bulk Enroll</h5>
+                                            <a
+                                                href="https://template-formatter-aneesh.vercel.app/"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}
+                                            >
+                                                🔗 Format Template Tool
+                                            </a>
+                                        </div>
+
                                         <form onSubmit={async (e) => {
                                             e.preventDefault();
                                             if (!e.target.files[0]) return;
+                                            const fileToUpload = e.target.files[0];
+
+                                            // PREVIEW MODE FIRST
                                             const formData = new FormData();
-                                            formData.append('file', e.target.files[0]);
+                                            formData.append('file', fileToUpload);
                                             try {
                                                 const token = user.token;
                                                 const config = { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } };
-                                                const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/enroll/${selectedCourse.id}/bulk`, formData, config);
-                                                alert(`Bulk Enrollment Complete:\nSuccess: ${res.data.results.success.length}\nFailed: ${res.data.results.failed.length}`);
-                                                fetchEnrolledStudents(selectedCourse.id);
+
+                                                // Call with ?preview=true
+                                                const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/enroll/${selectedCourse.id}/bulk?preview=true`, formData, config);
+
+                                                // Store preview data and file for later
+                                                setPreviewData(res.data);
+                                                setPendingBulkFile(fileToUpload);
+                                                setShowBulkPreviewModal(true);
+
                                             } catch (err) {
                                                 console.error(err);
-                                                alert('Bulk upload failed.');
+                                                alert(err.response?.data?.message || 'Bulk upload preview failed.');
                                             }
                                         }}>
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                 <input type="file" name="files" accept=".xlsx, .xls" className="input-field" required style={{ flex: 1 }} />
-                                                <button type="submit" className="btn" style={{ background: 'var(--bg-card)', border: '1px solid var(--primary)', color: 'var(--primary)' }}>Upload</button>
+                                                <button type="submit" className="btn" style={{ background: 'var(--bg-card)', border: '1px solid var(--primary)', color: 'var(--primary)' }}>Preview Upload</button>
                                             </div>
-                                            <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: '0.5rem' }}>
-                                                Upload an Excel file with emails in the first column.
-                                            </small>
                                         </form>
                                     </div>
                                 </div>
@@ -502,7 +527,7 @@ const Dashboard = () => {
                                         </button>
                                     </h5>
 
-                                    <details style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '4px' }}>
+                                    <details style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '4px' }} open>
                                         <summary style={{ padding: '0.75rem', cursor: 'pointer', color: 'white', userSelect: 'none' }}>
                                             View Student List {enrolledStudents.length > 0 ? '⬇️' : ''}
                                         </summary>
@@ -517,6 +542,7 @@ const Dashboard = () => {
                                                             <th style={{ padding: '0.5rem' }}>Email</th>
                                                             <th style={{ padding: '0.5rem' }}>Section</th>
                                                             <th style={{ padding: '0.5rem' }}>Sem</th>
+                                                            <th style={{ padding: '0.5rem' }}>Action</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -526,6 +552,18 @@ const Dashboard = () => {
                                                                 <td style={{ padding: '0.5rem' }}>{s.email}</td>
                                                                 <td style={{ padding: '0.5rem' }}>{s.section || 'N/A'}</td>
                                                                 <td style={{ padding: '0.5rem' }}>{s.academic_semester || 'N/A'}</td>
+                                                                <td style={{ padding: '0.5rem' }}>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setStudentToEdit(s);
+                                                                            setEditForm({ section: s.section || '', academic_semester: s.academic_semester || '' });
+                                                                        }}
+                                                                        style={{ cursor: 'pointer', background: 'none', border: 'none', fontSize: '1rem' }}
+                                                                        title="Edit Details"
+                                                                    >
+                                                                        ✏️
+                                                                    </button>
+                                                                </td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -714,6 +752,135 @@ const Dashboard = () => {
                     </div>
                 )
             }
+
+            {/* Bulk Preview Modal */}
+            {showBulkPreviewModal && previewData && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                    zIndex: 1000
+                }}>
+                    <div className="card" style={{ width: '600px', maxWidth: '95%', maxHeight: '90vh', overflowY: 'auto' }}>
+                        <h3 style={{ marginBottom: '1rem', color: 'white' }}>Bulk Upload Preview</h3>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                            <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '1rem', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                                <h4 style={{ color: '#6ee7b7', margin: 0 }}>{previewData.stats.valid}</h4>
+                                <small style={{ color: 'var(--text-muted)' }}>Valid Rows (Ready)</small>
+                            </div>
+                            <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '1rem', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                                <h4 style={{ color: '#fca5a5', margin: 0 }}>{previewData.stats.invalid}</h4>
+                                <small style={{ color: 'var(--text-muted)' }}>Invalid / Issues</small>
+                            </div>
+                        </div>
+
+                        {previewData.results.failed.length > 0 && (
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <h5 style={{ color: '#fca5a5', marginBottom: '0.5rem' }}>Issues Found:</h5>
+                                <ul style={{ maxHeight: '150px', overflowY: 'auto', paddingLeft: '1.5rem', margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                    {previewData.results.failed.map((fail, idx) => (
+                                        <li key={idx} style={{ marginBottom: '0.25rem' }}>
+                                            <strong>Row {fail.row}:</strong> {fail.email} - <span style={{ color: '#fca5a5' }}>{fail.reason}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                            {previewData.stats.valid > 0
+                                ? "Clicking 'Confirm' will enroll the valid students and ignore the rows with issues."
+                                : "No valid students found to enroll."}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                            <button className="btn" style={{ background: 'transparent' }} onClick={() => { setShowBulkPreviewModal(false); setPreviewData(null); setPendingBulkFile(null); }}>Cancel</button>
+                            <button
+                                className="btn btn-primary"
+                                disabled={previewData.stats.valid === 0}
+                                onClick={async () => {
+                                    if (!pendingBulkFile) return;
+                                    const formData = new FormData();
+                                    formData.append('file', pendingBulkFile);
+
+                                    try {
+                                        const token = user.token;
+                                        const config = { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } };
+
+                                        // EXECUTE UPLOAD (No preview flag)
+                                        const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/enroll/${selectedCourse.id}/bulk`, formData, config);
+
+                                        alert(`Upload Complete!\nEnrolled: ${res.data.enrolled_count}`);
+                                        setShowBulkPreviewModal(false);
+                                        setPreviewData(null);
+                                        setPendingBulkFile(null);
+                                        fetchEnrolledStudents(selectedCourse.id);
+                                    } catch (err) {
+                                        console.error(err);
+                                        alert('Upload failed.');
+                                    }
+                                }}
+                            >
+                                Confirm Upload ({previewData.stats.valid})
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Student Modal */}
+            {studentToEdit && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                    zIndex: 1000
+                }}>
+                    <div className="card" style={{ width: '400px', maxWidth: '90%' }}>
+                        <h3 style={{ marginBottom: '1.5rem', color: 'white' }}>Edit Student Details</h3>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>{studentToEdit.email}</p>
+
+                        <div style={{ marginBottom: '1rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Section</label>
+                            <input
+                                className="input-field"
+                                value={editForm.section}
+                                onChange={e => setEditForm({ ...editForm, section: e.target.value })}
+                                placeholder="e.g. A"
+                            />
+                        </div>
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Academic Semester</label>
+                            <input
+                                className="input-field"
+                                value={editForm.academic_semester}
+                                onChange={e => setEditForm({ ...editForm, academic_semester: e.target.value })}
+                                placeholder="e.g. Fall 2025"
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                            <button className="btn" style={{ background: 'transparent' }} onClick={() => setStudentToEdit(null)}>Cancel</button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={async () => {
+                                    try {
+                                        const config = { headers: { Authorization: `Bearer ${user.token}` } };
+                                        await axios.put(`${import.meta.env.VITE_API_URL}/api/enroll/student/${studentToEdit.id}`, editForm, config);
+                                        alert('Student updated');
+                                        setStudentToEdit(null);
+                                        fetchEnrolledStudents(selectedCourse.id);
+                                    } catch (e) {
+                                        console.error(e);
+                                        alert('Update failed');
+                                    }
+                                }}
+                            >
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };

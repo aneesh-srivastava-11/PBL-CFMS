@@ -28,7 +28,7 @@ const sequelize = process.env.DATABASE_URL
 const connectDB = async () => {
     try {
         await sequelize.authenticate();
-        console.log('MySQL Connected (Sequelize)');
+        console.log('PostgreSQL Connected (Sequelize)');
 
         // Sync models (careful with force: true in production!)
         await sequelize.sync({ alter: true });
