@@ -62,63 +62,83 @@ const { getFileStream } = require('../utils/s3');
 
 exports.downloadCourseZip = async (req, res) => {
     try {
+        const startTime = Date.now();
         const course = await Course.findByPk(req.params.id);
         if (!course) return res.status(404).json({ message: 'Course not found' });
 
-        const courseFiles = await File.findAll({ where: { course_id: req.params.id } }); // Sequelize
+        const courseFiles = await File.findAll({ where: { course_id: req.params.id } });
+
+        console.log(`[ZIP] Starting zip for ${course.course_code} with ${courseFiles.length} files`);
 
         const archive = archiver('zip', {
-            zlib: { level: 9 }
+            zlib: { level: 6 } // Reduced from 9 to 6 for better speed/compression balance
         });
 
         res.attachment(`${course.course_code}_files.zip`);
         archive.pipe(res);
 
+        // Error handling for archive
+        archive.on('error', (err) => {
+            console.error('[ZIP ERROR]', err);
+            throw err;
+        });
+
+        // Progress logging
+        archive.on('progress', (progress) => {
+            console.log(`[ZIP PROGRESS] ${progress.entries.processed}/${progress.entries.total} files`);
+        });
+
         if (courseFiles.length === 0) {
-            // Add a readme if empty
             archive.append('No files uploaded for this course yet.', { name: 'README.txt' });
         } else {
-            for (const file of courseFiles) {
-                // Determine folder name from file_type (capitalize first letter)
+            // OPTIMIZATION 1 & 2: Parallel downloads + Direct streaming
+            const filePromises = courseFiles.map(async (file) => {
                 const folderName = file.file_type ? (file.file_type.charAt(0).toUpperCase() + file.file_type.slice(1)) : 'Other';
 
-                // If using S3 storage
-                if (process.env.AWS_BUCKET_NAME) {
-                    try {
-                        console.log(`[DEBUG] Fetching from S3 for zip: ${file.filename}`);
+                try {
+                    if (process.env.AWS_BUCKET_NAME) {
+                        // S3 storage - Stream directly to archive (no buffer!)
+                        console.log(`[ZIP] Fetching ${file.filename} from S3...`);
                         const stream = await getFileStream(file.s3_key);
 
-                        // Convert stream to buffer
-                        const chunks = [];
-                        for await (const chunk of stream) {
-                            chunks.push(chunk);
+                        // DIRECT STREAMING - Memory efficient!
+                        archive.append(stream, { name: `${folderName}/${file.filename}` });
+                        console.log(`[ZIP] ✓ Added ${file.filename}`);
+                    } else {
+                        // Local storage
+                        const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
+                        if (fs.existsSync(filePath)) {
+                            archive.file(filePath, { name: `${folderName}/${file.filename}` });
+                            console.log(`[ZIP] ✓ Added ${file.filename} (local)`);
+                        } else {
+                            console.warn(`[ZIP] ⚠ File not found: ${file.filename}`);
                         }
-                        const fileBuffer = Buffer.concat(chunks);
-
-                        // Append buffer to archive
-                        archive.append(fileBuffer, { name: `${folderName}/${file.filename}` });
-                        console.log(`[DEBUG] Added to zip: ${file.filename}`);
-                    } catch (s3Error) {
-                        console.error(`[ERROR] Failed to fetch ${file.filename} from S3:`, s3Error);
-                        // Continue with other files even if one fails
                     }
-                } else {
-                    // Using local storage
-                    const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
-                    if (fs.existsSync(filePath)) {
-                        // Append file into a folder based on type
-                        archive.file(filePath, { name: `${folderName}/${file.filename}` });
-                    }
+                } catch (error) {
+                    console.error(`[ZIP] ✗ Failed to add ${file.filename}:`, error.message);
+                    // Add error note to zip instead of failing completely
+                    archive.append(`Failed to include: ${error.message}`, {
+                        name: `${folderName}/_ERROR_${file.filename}.txt`
+                    });
                 }
-            }
+            });
+
+            // Wait for all files to be added (parallel processing!)
+            await Promise.all(filePromises);
         }
 
-        archive.finalize();
+        // Finalize the archive
+        await archive.finalize();
+
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        console.log(`[ZIP] ✓ Completed in ${duration}s`);
+
     } catch (error) {
-        console.error(error);
+        console.error('[ZIP] Fatal error:', error);
         res.status(500).json({ message: 'Download failed' });
     }
 };
+
 
 exports.deleteCourse = async (req, res) => {
     try {
