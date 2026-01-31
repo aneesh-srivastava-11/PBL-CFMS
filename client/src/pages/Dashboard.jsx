@@ -484,32 +484,35 @@ const Dashboard = () => {
 
                                         <form onSubmit={async (e) => {
                                             e.preventDefault();
-                                            if (!e.target.files[0]) return;
-                                            const fileToUpload = e.target.files[0];
+                                            const fileInput = e.target.elements.files;
+                                            if (!fileInput || !fileInput.files[0]) {
+                                                alert('Please select a file');
+                                                return;
+                                            }
+                                            const fileToUpload = fileInput.files[0];
 
-                                            // PREVIEW MODE FIRST
+                                            // DIRECT UPLOAD (No Preview)
                                             const formData = new FormData();
                                             formData.append('file', fileToUpload);
                                             try {
                                                 const token = user.token;
                                                 const config = { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } };
 
-                                                // Call with ?preview=true
-                                                const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/enroll/${selectedCourse.id}/bulk?preview=true`, formData, config);
+                                                // Direct upload without preview
+                                                const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/enroll/${selectedCourse.id}/bulk`, formData, config);
 
-                                                // Store preview data and file for later
-                                                setPreviewData(res.data);
-                                                setPendingBulkFile(fileToUpload);
-                                                setShowBulkPreviewModal(true);
+                                                alert(`Upload Complete!\nEnrolled: ${res.data.enrolled_count} students`);
+                                                fetchEnrolledStudents(selectedCourse.id);
+                                                e.target.reset(); // Reset form
 
                                             } catch (err) {
                                                 console.error(err);
-                                                alert(err.response?.data?.message || 'Bulk upload preview failed.');
+                                                alert(err.response?.data?.message || 'Bulk upload failed.');
                                             }
                                         }}>
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                 <input type="file" name="files" accept=".xlsx, .xls" className="input-field" required style={{ flex: 1 }} />
-                                                <button type="submit" className="btn" style={{ background: 'var(--bg-card)', border: '1px solid var(--primary)', color: 'var(--primary)' }}>Preview Upload</button>
+                                                <button type="submit" className="btn" style={{ background: 'var(--bg-card)', border: '1px solid var(--primary)', color: 'var(--primary)' }}>Bulk Upload</button>
                                             </div>
                                         </form>
                                     </div>
@@ -753,80 +756,7 @@ const Dashboard = () => {
                 )
             }
 
-            {/* Bulk Preview Modal */}
-            {showBulkPreviewModal && previewData && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center',
-                    zIndex: 1000
-                }}>
-                    <div className="card" style={{ width: '600px', maxWidth: '95%', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3 style={{ marginBottom: '1rem', color: 'white' }}>Bulk Upload Preview</h3>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                            <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '1rem', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                                <h4 style={{ color: '#6ee7b7', margin: 0 }}>{previewData.stats.valid}</h4>
-                                <small style={{ color: 'var(--text-muted)' }}>Valid Rows (Ready)</small>
-                            </div>
-                            <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '1rem', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                <h4 style={{ color: '#fca5a5', margin: 0 }}>{previewData.stats.invalid}</h4>
-                                <small style={{ color: 'var(--text-muted)' }}>Invalid / Issues</small>
-                            </div>
-                        </div>
-
-                        {previewData.results.failed.length > 0 && (
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <h5 style={{ color: '#fca5a5', marginBottom: '0.5rem' }}>Issues Found:</h5>
-                                <ul style={{ maxHeight: '150px', overflowY: 'auto', paddingLeft: '1.5rem', margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                    {previewData.results.failed.map((fail, idx) => (
-                                        <li key={idx} style={{ marginBottom: '0.25rem' }}>
-                                            <strong>Row {fail.row}:</strong> {fail.email} - <span style={{ color: '#fca5a5' }}>{fail.reason}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-
-                        <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-                            {previewData.stats.valid > 0
-                                ? "Clicking 'Confirm' will enroll the valid students and ignore the rows with issues."
-                                : "No valid students found to enroll."}
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                            <button className="btn" style={{ background: 'transparent' }} onClick={() => { setShowBulkPreviewModal(false); setPreviewData(null); setPendingBulkFile(null); }}>Cancel</button>
-                            <button
-                                className="btn btn-primary"
-                                disabled={previewData.stats.valid === 0}
-                                onClick={async () => {
-                                    if (!pendingBulkFile) return;
-                                    const formData = new FormData();
-                                    formData.append('file', pendingBulkFile);
-
-                                    try {
-                                        const token = user.token;
-                                        const config = { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } };
-
-                                        // EXECUTE UPLOAD (No preview flag)
-                                        const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/enroll/${selectedCourse.id}/bulk`, formData, config);
-
-                                        alert(`Upload Complete!\nEnrolled: ${res.data.enrolled_count}`);
-                                        setShowBulkPreviewModal(false);
-                                        setPreviewData(null);
-                                        setPendingBulkFile(null);
-                                        fetchEnrolledStudents(selectedCourse.id);
-                                    } catch (err) {
-                                        console.error(err);
-                                        alert('Upload failed.');
-                                    }
-                                }}
-                            >
-                                Confirm Upload ({previewData.stats.valid})
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Edit Student Modal */}
             {studentToEdit && (
