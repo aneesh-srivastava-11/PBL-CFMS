@@ -82,15 +82,34 @@ exports.downloadCourseZip = async (req, res) => {
                 // Determine folder name from file_type (capitalize first letter)
                 const folderName = file.file_type ? (file.file_type.charAt(0).toUpperCase() + file.file_type.slice(1)) : 'Other';
 
-                // If using local storage
-                if (!process.env.AWS_BUCKET_NAME) {
+                // If using S3 storage
+                if (process.env.AWS_BUCKET_NAME) {
+                    try {
+                        console.log(`[DEBUG] Fetching from S3 for zip: ${file.filename}`);
+                        const stream = await getFileStream(file.s3_key);
+
+                        // Convert stream to buffer
+                        const chunks = [];
+                        for await (const chunk of stream) {
+                            chunks.push(chunk);
+                        }
+                        const fileBuffer = Buffer.concat(chunks);
+
+                        // Append buffer to archive
+                        archive.append(fileBuffer, { name: `${folderName}/${file.filename}` });
+                        console.log(`[DEBUG] Added to zip: ${file.filename}`);
+                    } catch (s3Error) {
+                        console.error(`[ERROR] Failed to fetch ${file.filename} from S3:`, s3Error);
+                        // Continue with other files even if one fails
+                    }
+                } else {
+                    // Using local storage
                     const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
                     if (fs.existsSync(filePath)) {
                         // Append file into a folder based on type
                         archive.file(filePath, { name: `${folderName}/${file.filename}` });
                     }
                 }
-                // TODO: S3 logic would go here (download from S3 then append)
             }
         }
 
