@@ -57,6 +57,41 @@ exports.enrollStudent = async (req, res) => {
     }
 };
 
+exports.deleteEnrollment = async (req, res) => {
+    const { courseId, studentId } = req.params;
+
+    try {
+        // 1. Verify Course ownership (Faculty only)
+        const course = await Course.findByPk(courseId);
+        if (!course) {
+            return res.status(404).json({ message: 'Course not found' });
+        }
+        if (course.faculty_id !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Not authorized to manage enrollments for this course' });
+        }
+
+        // 2. Find and delete enrollment
+        const enrollment = await Enrollment.findOne({
+            where: {
+                student_id: studentId,
+                course_id: courseId
+            }
+        });
+
+        if (!enrollment) {
+            return res.status(404).json({ message: 'Enrollment not found' });
+        }
+
+        await enrollment.destroy();
+        res.json({ message: 'Enrollment deleted successfully' });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+
 exports.getEnrolledStudents = async (req, res) => {
     const { courseId } = req.params;
     try {

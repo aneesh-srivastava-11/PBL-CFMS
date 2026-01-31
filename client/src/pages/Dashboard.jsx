@@ -21,6 +21,7 @@ const Dashboard = () => {
     const [isGenerating, setIsGenerating] = useState(false);
     const [expandedFolders, setExpandedFolders] = useState({}); // Folder State
     const [enrolledStudents, setEnrolledStudents] = useState([]); // Enrolled Students State
+    const [studentSearchQuery, setStudentSearchQuery] = useState(''); // Search filter
 
     // Bulk Upload & Edit State
     const [previewData, setPreviewData] = useState(null);
@@ -236,6 +237,19 @@ const Dashboard = () => {
         } catch (error) {
             console.error(error);
             alert(error.response?.data?.message || 'Enrollment failed');
+        }
+    };
+
+    const handleDeleteEnrollment = async (studentId, studentName) => {
+        if (!window.confirm(`Remove ${studentName} from this course?`)) return;
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.delete(`${import.meta.env.VITE_API_URL}/api/enroll/${selectedCourse.id}/${studentId}`, config);
+            alert('Student removed successfully');
+            fetchEnrolledStudents(selectedCourse.id);
+        } catch (error) {
+            console.error(error);
+            alert(error.response?.data?.message || 'Failed to remove enrollment');
         }
     };
 
@@ -530,11 +544,21 @@ const Dashboard = () => {
                                         </button>
                                     </h5>
 
+                                    {/* Search Input */}
+                                    <input
+                                        type="text"
+                                        placeholder="🔍 Search by name or email..."
+                                        className="input-field"
+                                        value={studentSearchQuery}
+                                        onChange={(e) => setStudentSearchQuery(e.target.value)}
+                                        style={{ marginBottom: '1rem' }}
+                                    />
+
                                     <details style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '4px' }} open>
                                         <summary style={{ padding: '0.75rem', cursor: 'pointer', color: 'white', userSelect: 'none' }}>
                                             View Student List {enrolledStudents.length > 0 ? '⬇️' : ''}
                                         </summary>
-                                        <div style={{ maxHeight: '300px', overflowY: 'auto', padding: '0.5rem' }}>
+                                        <div style={{ maxHeight: '400px', overflowY: 'auto', padding: '0.5rem' }}>
                                             {enrolledStudents.length === 0 ? (
                                                 <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>No students enrolled yet.</div>
                                             ) : (
@@ -549,26 +573,42 @@ const Dashboard = () => {
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {enrolledStudents.map(s => (
-                                                            <tr key={s.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                                                <td style={{ padding: '0.5rem' }}>{s.name || '-'}</td>
-                                                                <td style={{ padding: '0.5rem' }}>{s.email}</td>
-                                                                <td style={{ padding: '0.5rem' }}>{s.section || 'N/A'}</td>
-                                                                <td style={{ padding: '0.5rem' }}>{s.academic_semester || 'N/A'}</td>
-                                                                <td style={{ padding: '0.5rem' }}>
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setStudentToEdit(s);
-                                                                            setEditForm({ section: s.section || '', academic_semester: s.academic_semester || '' });
-                                                                        }}
-                                                                        style={{ cursor: 'pointer', background: 'none', border: 'none', fontSize: '1rem' }}
-                                                                        title="Edit Details"
-                                                                    >
-                                                                        ✏️
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        ))}
+                                                        {enrolledStudents
+                                                            .filter(s => {
+                                                                if (!studentSearchQuery) return true;
+                                                                const query = studentSearchQuery.toLowerCase();
+                                                                return (
+                                                                    (s.name && s.name.toLowerCase().includes(query)) ||
+                                                                    (s.email && s.email.toLowerCase().includes(query))
+                                                                );
+                                                            })
+                                                            .map(s => (
+                                                                <tr key={s.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                                    <td style={{ padding: '0.5rem' }}>{s.name || '-'}</td>
+                                                                    <td style={{ padding: '0.5rem' }}>{s.email}</td>
+                                                                    <td style={{ padding: '0.5rem' }}>{s.section || 'N/A'}</td>
+                                                                    <td style={{ padding: '0.5rem' }}>{s.academic_semester || 'N/A'}</td>
+                                                                    <td style={{ padding: '0.5rem', display: 'flex', gap: '0.5rem' }}>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setStudentToEdit(s);
+                                                                                setEditForm({ section: s.section || '', academic_semester: s.academic_semester || '' });
+                                                                            }}
+                                                                            style={{ cursor: 'pointer', background: 'none', border: 'none', fontSize: '1rem' }}
+                                                                            title="Edit Details"
+                                                                        >
+                                                                            ✏️
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleDeleteEnrollment(s.id, s.name)}
+                                                                            style={{ cursor: 'pointer', background: 'none', border: 'none', fontSize: '1rem' }}
+                                                                            title="Remove from Course"
+                                                                        >
+                                                                            🗑️
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
                                                     </tbody>
                                                 </table>
                                             )}
