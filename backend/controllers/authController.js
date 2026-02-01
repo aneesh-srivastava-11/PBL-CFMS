@@ -9,16 +9,20 @@ exports.loginSync = async (req, res) => {
             return res.status(400).json({ message: 'Email is required from provider' });
         }
 
-        // Domain Logic
-        // Faculty Domain: @faculty.college.edu
+        // Domain Logic - Use environment variables for flexibility
         let role = '';
-        if (email.endsWith('@jaipur.manipal.edu')) {
+        const studentDomain = process.env.ALLOWED_STUDENT_DOMAIN || '@muj.manipal.edu';
+        const facultyDomain = process.env.ALLOWED_FACULTY_DOMAIN || '@jaipur.manipal.edu';
+
+        if (email.endsWith(facultyDomain)) {
             role = 'faculty';
-        } else if (email.endsWith('@muj.manipal.edu')) {
+        } else if (email.endsWith(studentDomain)) {
             role = 'student';
         } else {
             // Strict Domain Check
-            return res.status(403).json({ message: 'Unauthorized Email Domain. Only @jaipur.manipal.edu or @muj.manipal.edu allowed.' });
+            return res.status(403).json({
+                message: `Unauthorized Email Domain. Only ${facultyDomain} or ${studentDomain} allowed.`
+            });
         }
 
         // Check if user exists in DB

@@ -24,12 +24,15 @@ const Login = () => {
         e.preventDefault();
         setError('');
         try {
-            // Validation Logic
-            const isFaculty = email.endsWith('@jaipur.manipal.edu');
-            const isStudent = email.endsWith('@muj.manipal.edu');
+            // Validation Logic - Use environment variables
+            const studentDomain = import.meta.env.VITE_ALLOWED_STUDENT_DOMAIN || '@muj.manipal.edu';
+            const facultyDomain = import.meta.env.VITE_ALLOWED_FACULTY_DOMAIN || '@jaipur.manipal.edu';
+
+            const isFaculty = email.endsWith(facultyDomain);
+            const isStudent = email.endsWith(studentDomain);
 
             if (!isFaculty && !isStudent) {
-                setError('Invalid Email Domain. Must be @jaipur.manipal.edu or @muj.manipal.edu');
+                setError(`Invalid Email Domain. Must be ${facultyDomain} or ${studentDomain}`);
                 return;
             }
 

@@ -57,6 +57,7 @@ exports.getCourseById = async (req, res) => {
 
 const archiver = require('archiver');
 const fs = require('fs');
+const fsPromises = require('fs').promises; // Async file operations
 const path = require('path');
 const { getFileStream } = require('../utils/s3');
 
@@ -105,12 +106,13 @@ exports.downloadCourseZip = async (req, res) => {
                         archive.append(stream, { name: `${folderName}/${file.filename}` });
                         console.log(`[ZIP] ✓ Added ${file.filename}`);
                     } else {
-                        // Local storage
+                        // Local storage - Use async file check
                         const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
-                        if (fs.existsSync(filePath)) {
+                        try {
+                            await fsPromises.access(filePath); // Check if file exists/accessible
                             archive.file(filePath, { name: `${folderName}/${file.filename}` });
                             console.log(`[ZIP] ✓ Added ${file.filename} (local)`);
-                        } else {
+                        } catch (fileError) {
                             console.warn(`[ZIP] ⚠ File not found: ${file.filename}`);
                         }
                     }
@@ -234,11 +236,14 @@ exports.generateCoursePDF = async (req, res) => {
                     }
                 } else {
                     const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
-                    if (!fs.existsSync(filePath)) {
+                    try {
+                        await fsPromises.access(filePath); // Async file check
+                        fileBuffer = await fsPromises.readFile(filePath);
+                        console.log(`[DEBUG] Loaded from local: ${file.filename}, Size: ${fileBuffer.length}`);
+                    } catch (fileError) {
                         console.error(`[DEBUG] File missing on disk: ${filePath}`);
                         continue;
                     }
-                    fileBuffer = fs.readFileSync(filePath);
                 }
 
                 const ext = file.filename.toLowerCase().split('.').pop();

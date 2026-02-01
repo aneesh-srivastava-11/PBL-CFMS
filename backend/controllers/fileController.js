@@ -95,10 +95,13 @@ exports.deleteFileHandler = async (req, res) => {
             if (process.env.AWS_BUCKET_NAME) {
                 await deleteFile(file.s3_key);
             } else {
-                // Local delete
+                // Local delete - Use async check
                 const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
-                if (fs.existsSync(filePath)) {
+                try {
+                    await fs.promises.access(filePath); // Check if exists
                     await unlinkFile(filePath);
+                } catch (err) {
+                    // File doesn't exist, that's okay
                 }
             }
         } catch (err) {
@@ -144,11 +147,14 @@ exports.downloadFileHandler = async (req, res) => {
                 res.status(500).json({ message: 'Error retrieving file from Cloud' });
             }
         } else {
-            // Local Download
+            // Local Download - Use async check
             const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
-            if (!fs.existsSync(filePath)) return res.status(404).json({ message: 'File on disk not found' });
-
-            res.download(filePath, file.filename); // This sets Content-Disposition automatically
+            try {
+                await fs.promises.access(filePath); // Check if exists
+                res.download(filePath, file.filename); // This sets Content-Disposition automatically
+            } catch (err) {
+                return res.status(404).json({ message: 'File on disk not found' });
+            }
         }
     } catch (error) {
         console.error('Download error:', error);
