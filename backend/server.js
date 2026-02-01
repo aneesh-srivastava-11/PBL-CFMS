@@ -12,6 +12,9 @@ const rateLimit = require('express-rate-limit');
 const db = require('./config/db');
 require('./models'); // Initialize associations
 
+// Initialize Firebase Admin SDK BEFORE routes load
+require('./config/firebaseAdmin');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
