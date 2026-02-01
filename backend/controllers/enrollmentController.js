@@ -1,6 +1,7 @@
 const Enrollment = require('../models/enrollmentModel');
 const Course = require('../models/courseModel');
 const User = require('../models/userModel');
+const logger = require('../utils/logger');
 const ExcelJS = require('exceljs');
 
 exports.enrollStudent = async (req, res) => {

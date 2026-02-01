@@ -14,11 +14,13 @@
     "@aws-sdk/client-s3": "^3.975.0",
     "@aws-sdk/lib-storage": "^3.975.0",
     "archiver": "^7.0.1",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "exceljs": "^4.4.0",
     "express": "^4.19.2",
     "express-rate-limit": "^8.2.1",
+    "express-validator": "^7.3.1",
     "firebase-admin": "^13.6.0",
     "helmet": "^8.1.0",
     "hpp": "^0.2.3",
@@ -29,6 +31,7 @@
     "project-based-learning-root": "file:..",
     "sequelize": "^6.37.7",
     "sequelize-cli": "^6.6.5",
+    "winston": "^3.19.0",
     "xss-clean": "^0.1.4"
   },
   "devDependencies": {

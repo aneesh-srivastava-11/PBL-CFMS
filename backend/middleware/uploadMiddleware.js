@@ -11,8 +11,8 @@ const storage = multer.diskStorage({
 });
 
 const checkFileType = (file, cb) => {
-    // Allowed extensions
-    const filetypes = /pdf|doc|docx|jpg|jpeg|png/;
+    // Allowed extensions - Added PowerPoint support
+    const filetypes = /pdf|doc|docx|ppt|pptx|jpg|jpeg|png/;
     // Check ext
     const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
     // Check mime
@@ -21,12 +21,16 @@ const checkFileType = (file, cb) => {
     if (extname) {
         return cb(null, true);
     } else {
-        cb('Error: Images/Docs Only!');
+        cb('Error: Only PDF, Word, PowerPoint, and Images are allowed!');
     }
 };
 
 const upload = multer({
     storage,
+    limits: {
+        fileSize: 100 * 1024 * 1024, // 100MB limit
+        files: 1 // Only allow 1 file per upload
+    },
     fileFilter: function (req, file, cb) {
         checkFileType(file, cb);
     }

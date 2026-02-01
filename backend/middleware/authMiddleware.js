@@ -1,5 +1,6 @@
 const admin = require('../config/firebaseAdmin');
 const User = require('../models/userModel');
+const logger = require('../utils/logger');
 
 const protect = async (req, res, next) => {
     let token;
@@ -9,10 +10,10 @@ const protect = async (req, res, next) => {
             token = req.headers.authorization.split(' ')[1];
 
             // Verify token with Firebase Admin
-            console.log(`[DEBUG] Verifying token: ${token.substring(0, 10)}...`);
+            logger.debug(`[DEBUG] Verifying token: ${token.substring(0, 10)}...`);
             const decodedToken = await admin.auth().verifyIdToken(token);
             req.user = decodedToken; // { uid, email, ... }
-            console.log(`[DEBUG] Token verified for: ${req.user.email}`);
+            logger.debug(`[DEBUG] Token verified for: ${req.user.email}`);
 
             // Attach internal user ID and Role from MySQL
             const internalUser = await User.findOne({ where: { email: req.user.email } });
@@ -20,9 +21,9 @@ const protect = async (req, res, next) => {
                 req.user.id = internalUser.id;
                 req.user.role = internalUser.role;
                 req.user.is_coordinator = internalUser.is_coordinator;
-                console.log(`[DEBUG] Internal User found. ID: ${internalUser.id}, Role: ${internalUser.role}, Coordinator: ${internalUser.is_coordinator}`);
+                logger.debug(`[DEBUG] Internal User found. ID: ${internalUser.id}, Role: ${internalUser.role}, Coordinator: ${internalUser.is_coordinator}`);
             } else {
-                console.log(`[DEBUG] No internal user found for ${req.user.email}`);
+                logger.debug(`[DEBUG] No internal user found for ${req.user.email}`);
                 // If checking sync route, we might not have user yet, which is fine
             }
 

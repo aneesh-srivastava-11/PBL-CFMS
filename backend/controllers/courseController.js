@@ -60,6 +60,7 @@ const fs = require('fs');
 const fsPromises = require('fs').promises; // Async file operations
 const path = require('path');
 const { getFileStream } = require('../utils/s3');
+const logger = require('../utils/logger');
 
 exports.downloadCourseZip = async (req, res) => {
     try {
@@ -86,7 +87,7 @@ exports.downloadCourseZip = async (req, res) => {
 
         // Progress logging
         archive.on('progress', (progress) => {
-            console.log(`[ZIP PROGRESS] ${progress.entries.processed}/${progress.entries.total} files`);
+            logger.debug(`[ZIP PROGRESS] ${progress.entries.processed}/${progress.entries.total} files`);
         });
 
         if (courseFiles.length === 0) {
@@ -111,9 +112,9 @@ exports.downloadCourseZip = async (req, res) => {
                         try {
                             await fsPromises.access(filePath); // Check if file exists/accessible
                             archive.file(filePath, { name: `${folderName}/${file.filename}` });
-                            console.log(`[ZIP] ✓ Added ${file.filename} (local)`);
+                            logger.debug(`[ZIP] ✓ Added ${file.filename} (local)`);
                         } catch (fileError) {
-                            console.warn(`[ZIP] ⚠ File not found: ${file.filename}`);
+                            logger.warn(`[ZIP] ⚠ File not found: ${file.filename}`);
                         }
                     }
                 } catch (error) {
@@ -229,7 +230,7 @@ exports.generateCoursePDF = async (req, res) => {
                             chunks.push(chunk);
                         }
                         fileBuffer = Buffer.concat(chunks);
-                        console.log(`[DEBUG] Fetched from S3: ${file.filename}, Size: ${fileBuffer.length}`);
+                        logger.debug(`[DEBUG] Fetched from S3: ${file.filename}, Size: ${fileBuffer.length}`);
                     } catch (s3Error) {
                         console.error(`[ERROR] Failed to fetch from S3: ${file.filename}`, s3Error);
                         continue; // Skip this file
@@ -239,7 +240,7 @@ exports.generateCoursePDF = async (req, res) => {
                     try {
                         await fsPromises.access(filePath); // Async file check
                         fileBuffer = await fsPromises.readFile(filePath);
-                        console.log(`[DEBUG] Loaded from local: ${file.filename}, Size: ${fileBuffer.length}`);
+                        logger.debug(`[DEBUG] Loaded from local: ${file.filename}, Size: ${fileBuffer.length}`);
                     } catch (fileError) {
                         console.error(`[DEBUG] File missing on disk: ${filePath}`);
                         continue;
