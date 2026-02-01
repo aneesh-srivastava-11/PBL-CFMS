@@ -136,24 +136,27 @@ exports.downloadFileHandler = async (req, res) => {
         // Check enrollment/permissions if needed, but 'protect' middleware should handle basic auth
         // Assuming protect is used.
 
+        // CRITICAL FIX: On Render, ALWAYS use S3 if configured (ephemeral filesystem)
         if (process.env.AWS_BUCKET_NAME) {
             // S3 Download
             try {
                 const readStream = await getFileStream(file.s3_key);
                 res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+                res.setHeader('Content-Type', 'application/octet-stream');
                 readStream.pipe(res);
             } catch (s3err) {
                 console.error('S3 Download Error:', s3err);
-                res.status(500).json({ message: 'Error retrieving file from Cloud' });
+                return res.status(500).json({ message: 'Error retrieving file from Cloud Storage' });
             }
         } else {
-            // Local Download - Use async check
+            // Local Download - Only for development (DO NOT use on Render)
             const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
             try {
                 await fs.promises.access(filePath); // Check if exists
                 res.download(filePath, file.filename); // This sets Content-Disposition automatically
             } catch (err) {
-                return res.status(404).json({ message: 'File on disk not found' });
+                console.error('Local file not found:', err);
+                return res.status(404).json({ message: 'File not found. Ensure S3 is configured for production.' });
             }
         }
     } catch (error) {
