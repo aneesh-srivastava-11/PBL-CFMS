@@ -12,13 +12,7 @@ const rateLimit = require('express-rate-limit');
 const db = require('./config/db');
 require('./models'); // Initialize associations
 
-// CRITICAL FIX: Ensure uploads folder exists (for Render deployment)
-const fs = require('fs');
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log('✓ Created uploads directory');
-}
+
 
 // Initialize Firebase Admin SDK BEFORE routes load
 require('./config/firebaseAdmin');

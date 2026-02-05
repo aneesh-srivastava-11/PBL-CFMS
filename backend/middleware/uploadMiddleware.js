@@ -1,9 +1,8 @@
-const multer = require('multer');
-const path = require('path');
+const os = require('os');
 
 const storage = multer.diskStorage({
     destination(req, file, cb) {
-        cb(null, 'uploads/'); // Make sure this folder exists
+        cb(null, os.tmpdir()); // Use /tmp for Vercel
     },
     filename(req, file, cb) {
         cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
