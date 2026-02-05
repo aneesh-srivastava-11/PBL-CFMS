@@ -28,7 +28,6 @@
     "pdf-lib": "^1.17.1",
     "pg": "^8.17.2",
     "pg-hstore": "^2.3.4",
-    "project-based-learning-root": "file:..",
     "sequelize": "^6.37.7",
     "sequelize-cli": "^6.6.5",
     "winston": "^3.19.0",
