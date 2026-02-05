@@ -59,6 +59,7 @@ const archiver = require('archiver');
 const fs = require('fs');
 const fsPromises = require('fs').promises; // Async file operations
 const path = require('path');
+const os = require('os');
 const { getFileStream } = require('../utils/s3');
 const logger = require('../utils/logger');
 
@@ -108,7 +109,7 @@ exports.downloadCourseZip = async (req, res) => {
                         console.log(`[ZIP] ✓ Added ${file.filename}`);
                     } else {
                         // Local storage - Use async file check
-                        const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
+                        const filePath = path.join(os.tmpdir(), file.s3_key);
                         try {
                             await fsPromises.access(filePath); // Check if file exists/accessible
                             archive.file(filePath, { name: `${folderName}/${file.filename}` });
@@ -236,7 +237,8 @@ exports.generateCoursePDF = async (req, res) => {
                         continue; // Skip this file
                     }
                 } else {
-                    const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
+                    // Local storage - Use async file check
+                    const filePath = path.join(os.tmpdir(), file.s3_key);
                     try {
                         await fsPromises.access(filePath); // Async file check
                         fileBuffer = await fsPromises.readFile(filePath);

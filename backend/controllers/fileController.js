@@ -2,6 +2,7 @@ const { uploadFile, getFileStream, deleteFile } = require('../utils/s3');
 const fs = require('fs');
 const util = require('util');
 const path = require('path');
+const os = require('os');
 const unlinkFile = util.promisify(fs.unlink);
 const File = require('../models/fileModel');
 
@@ -96,7 +97,7 @@ exports.deleteFileHandler = async (req, res) => {
                 await deleteFile(file.s3_key);
             } else {
                 // Local delete - Use async check
-                const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
+                const filePath = path.join(os.tmpdir(), file.s3_key);
                 try {
                     await fs.promises.access(filePath); // Check if exists
                     await unlinkFile(filePath);
@@ -150,7 +151,7 @@ exports.downloadFileHandler = async (req, res) => {
             }
         } else {
             // Local Download - Only for development (DO NOT use on Render)
-            const filePath = path.join(__dirname, '..', 'uploads', file.s3_key);
+            const filePath = path.join(os.tmpdir(), file.s3_key);
             try {
                 await fs.promises.access(filePath); // Check if exists
                 res.download(filePath, file.filename); // This sets Content-Disposition automatically
