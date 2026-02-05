@@ -4,6 +4,9 @@ import { AuthContext } from '../context/AuthContext';
 import { auth } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 
+import bgImage from '../assets/image.png';
+import mujLogo from '../assets/mujLogo.png';
+
 
 const Login = () => {
     const { login, user } = useContext(AuthContext);
@@ -80,7 +83,7 @@ const Login = () => {
             {/* Background Image with Overlay */}
             <div
                 className="absolute inset-0 z-0 w-full h-full bg-cover bg-center bg-no-repeat"
-                style={{ backgroundImage: "url('/src/assets/image.png')" }}
+                style={{ backgroundImage: `url(${bgImage})` }}
             >
                 <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
             </div>
@@ -91,7 +94,7 @@ const Login = () => {
                 className="relative z-10 bg-white/90 backdrop-blur-md p-10 rounded-2xl shadow-2xl w-full max-w-md border border-white/20"
             >
                 <div className="flex justify-center mb-6">
-                    <img src="/src/assets/mujLogo.png" alt="MUJ Logo" className="h-20 drop-shadow-md" />
+                    <img src={mujLogo} alt="MUJ Logo" className="h-20 drop-shadow-md" />
                 </div>
 
                 <h2 className="text-3xl font-bold mb-2 text-center text-orange-600">

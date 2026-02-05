@@ -38,6 +38,9 @@ const Dashboard = () => {
         'exam_solution', 'assignment_solution'
     ];
 
+    // Sanitize API URL
+    const apiUrl = import.meta.env.VITE_API_URL.replace(/\/$/, '');
+
 
 
     useEffect(() => {
@@ -55,7 +58,7 @@ const Dashboard = () => {
     const fetchCourses = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`${import.meta.env.VITE_API_URL}/api/courses`, config);
+            const { data } = await axios.get(`${apiUrl}/api/courses`, config);
             if (Array.isArray(data)) {
                 setCourses(data);
             } else {
@@ -70,7 +73,7 @@ const Dashboard = () => {
     const fetchCourseFiles = async (courseId) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`${import.meta.env.VITE_API_URL}/api/files/course/${courseId}`, config);
+            const { data } = await axios.get(`${apiUrl}/api/files/course/${courseId}`, config);
             setCourseFiles(data);
         } catch (error) {
             console.error('Error fetching files', error);
@@ -80,7 +83,7 @@ const Dashboard = () => {
     const fetchEnrolledStudents = async (courseId) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`${import.meta.env.VITE_API_URL}/api/enroll/${courseId}`, config);
+            const { data } = await axios.get(`${apiUrl}/api/enroll/${courseId}`, config);
             setEnrolledStudents(data);
         } catch (error) {
             console.error('Error fetching enrolled students', error);
@@ -91,7 +94,7 @@ const Dashboard = () => {
         e.preventDefault();
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post(`${import.meta.env.VITE_API_URL}/api/courses`, newCourse, config);
+            await axios.post(`${apiUrl}/api/courses`, newCourse, config);
             setNewCourse({ course_code: '', course_name: '', semester: '' });
             fetchCourses();
         } catch (error) {
@@ -115,7 +118,7 @@ const Dashboard = () => {
                     Authorization: `Bearer ${user.token}`
                 }
             };
-            const { data } = await axios.post(`${import.meta.env.VITE_API_URL}/api/files/upload`, formData, config);
+            const { data } = await axios.post(`${apiUrl}/api/files/upload`, formData, config);
             setUploadStatus(`Uploaded: ${data.filePath}`);
             setFile(null);
             fetchCourseFiles(selectedCourse.id);
@@ -131,7 +134,7 @@ const Dashboard = () => {
                 headers: { Authorization: `Bearer ${user.token}` },
                 responseType: 'blob'
             };
-            const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/files/${fileId}/download`, config);
+            const response = await axios.get(`${apiUrl}/api/files/${fileId}/download`, config);
 
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
@@ -152,7 +155,7 @@ const Dashboard = () => {
                 headers: { Authorization: `Bearer ${user.token}` },
                 responseType: 'blob'
             };
-            const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/courses/${selectedCourse.id}/download`, config);
+            const response = await axios.get(`${apiUrl}/api/courses/${selectedCourse.id}/download`, config);
 
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
@@ -171,7 +174,7 @@ const Dashboard = () => {
         if (!window.confirm('Are you sure you want to delete this file?')) return;
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`${import.meta.env.VITE_API_URL}/api/files/${fileId}`, config);
+            await axios.delete(`${apiUrl}/api/files/${fileId}`, config);
             fetchCourseFiles(selectedCourse.id);
         } catch (error) {
             console.error('Delete failed', error);
@@ -182,7 +185,7 @@ const Dashboard = () => {
     const handleDeleteCourse = async (courseId) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`${import.meta.env.VITE_API_URL}/api/courses/${courseId}`, config);
+            await axios.delete(`${apiUrl}/api/courses/${courseId}`, config);
 
             // If the deleted course was selected, deselect it
             if (selectedCourse?.id === courseId) {
@@ -200,7 +203,7 @@ const Dashboard = () => {
     const handleToggleVisibility = async (fileId) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.patch(`${import.meta.env.VITE_API_URL}/api/files/${fileId}/visibility`, {}, config);
+            await axios.patch(`${apiUrl}/api/files/${fileId}/visibility`, {}, config);
             fetchCourseFiles(selectedCourse.id);
         } catch (error) {
             console.error('Visibility toggle failed', error);
@@ -211,7 +214,7 @@ const Dashboard = () => {
     const handleToggleCoordinator = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.put(`${import.meta.env.VITE_API_URL}/api/auth/toggle-coordinator`, {}, config);
+            const { data } = await axios.put(`${apiUrl}/api/auth/toggle-coordinator`, {}, config);
             updateUser({ is_coordinator: data.is_coordinator });
             alert(data.message);
         } catch (error) {
@@ -224,7 +227,7 @@ const Dashboard = () => {
         e.preventDefault();
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post(`${import.meta.env.VITE_API_URL}/api/enroll/${selectedCourse.id}`, { studentEmail }, config);
+            await axios.post(`${apiUrl}/api/enroll/${selectedCourse.id}`, { studentEmail }, config);
             alert('Student enrolled successfully!');
             fetchEnrolledStudents(selectedCourse.id);
             setStudentEmail('');
@@ -238,7 +241,7 @@ const Dashboard = () => {
         if (!window.confirm(`Remove ${studentName} from this course?`)) return;
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`${import.meta.env.VITE_API_URL}/api/enroll/${selectedCourse.id}/${studentId}`, config);
+            await axios.delete(`${apiUrl}/api/enroll/${selectedCourse.id}/${studentId}`, config);
             alert('Student removed successfully');
             fetchEnrolledStudents(selectedCourse.id);
         } catch (error) {
@@ -257,7 +260,7 @@ const Dashboard = () => {
             };
             // Send force flag
             const response = await axios.post(
-                `${import.meta.env.VITE_API_URL}/api/courses/${selectedCourse.id}/generate-pdf`,
+                `${apiUrl}/api/courses/${selectedCourse.id}/generate-pdf`,
                 { force },
                 config
             );
@@ -499,7 +502,7 @@ const Dashboard = () => {
                                                                 formData.append('file', fileInput.files[0]);
                                                                 try {
                                                                     const config = { headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'multipart/form-data' } };
-                                                                    await axios.post(`${import.meta.env.VITE_API_URL}/api/enroll/${selectedCourse.id}/bulk`, formData, config);
+                                                                    await axios.post(`${apiUrl}/api/enroll/${selectedCourse.id}/bulk`, formData, config);
                                                                     alert('Uploaded!'); fetchEnrolledStudents(selectedCourse.id); e.target.reset();
                                                                 } catch (err) { alert('Failed'); }
                                                             }} className="flex gap-2">
@@ -636,7 +639,7 @@ const Dashboard = () => {
                                     onClick={async () => {
                                         try {
                                             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-                                            await axios.put(`${import.meta.env.VITE_API_URL}/api/enroll/student/${studentToEdit.id}`, editForm, config);
+                                            await axios.put(`${apiUrl}/api/enroll/student/${studentToEdit.id}`, editForm, config);
                                             alert('Student updated');
                                             setStudentToEdit(null);
                                             fetchEnrolledStudents(selectedCourse.id);

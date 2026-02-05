@@ -36,7 +36,8 @@ app.use(limiter);
 // Regular Middleware
 app.use(cors());
 app.use(express.json()); // Body parser should come after security headers but generally before XSS clean if possible, but xss-clean works on body
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const os = require('os');
+app.use('/uploads', express.static(os.tmpdir()));
 
 // Routes Placeholder
 app.get('/', (req, res) => {
