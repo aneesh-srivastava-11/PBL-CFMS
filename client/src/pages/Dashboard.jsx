@@ -7,8 +7,6 @@ import TopHeader from '../components/TopHeader';
 import { Book, User as UserIcon, Folder as FolderIcon, FolderOpen, ChevronDown, Download, Trash2, Eye, EyeOff, XCircle, CheckCircle } from "lucide-react";
 
 const Dashboard = () => {
-    console.log("Dashboard rendering");
-    console.log("VITE_API_URL:", import.meta.env.VITE_API_URL);
     const { user, logout, loading, updateUser } = useContext(AuthContext);
     const navigate = useNavigate();
     const [courses, setCourses] = useState([]);
@@ -40,13 +38,7 @@ const Dashboard = () => {
         'exam_solution', 'assignment_solution'
     ];
 
-    useEffect(() => {
-        if (!loading && !user) {
-            navigate('/login');
-        } else if (user) {
-            fetchCourses();
-        }
-    }, [user, loading, navigate]);
+
 
     useEffect(() => {
         if (selectedCourse) {
@@ -64,7 +56,6 @@ const Dashboard = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const { data } = await axios.get(`${import.meta.env.VITE_API_URL}/api/courses`, config);
-            console.log("Fetched courses data:", data);
             if (Array.isArray(data)) {
                 setCourses(data);
             } else {
@@ -314,7 +305,24 @@ const Dashboard = () => {
     };
 
 
-    if (loading || !user) return <div className="flex justify-center items-center h-screen text-orange-600">Loading...</div>;
+    // Redirect if not logged in
+    useEffect(() => {
+        if (!loading && !user) {
+            navigate('/login');
+        } else if (user) {
+            fetchCourses();
+        }
+    }, [user, loading, navigate]);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-screen bg-gray-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+            </div>
+        );
+    }
+
+    if (!user) return null; // Don't render dashboard content while redirecting
 
     return (
         <div className="flex min-h-screen bg-gray-50 font-sans text-gray-800">
@@ -329,30 +337,7 @@ const Dashboard = () => {
                 <main className="flex-1 overflow-y-auto p-6 md:p-8">
 
                     {/* Top Info Card */}
-                    <div className="bg-white rounded-lg shadow-sm border-t-4 border-orange-500 p-6 mb-8">
-                        <div className="flex items-center space-x-2 mb-4">
-                            <UserIcon className="h-5 w-5 text-gray-600" />
-                            <h2 className="text-lg font-bold text-gray-700">Class Coordinator Information</h2>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
-                            <div>
-                                <p className="text-gray-500 text-xs uppercase font-semibold">Name:</p>
-                                <p className="font-medium text-orange-600">{user.name}</p>
-                            </div>
-                            <div>
-                                <p className="text-gray-500 text-xs uppercase font-semibold">Email:</p>
-                                <p className="font-medium text-blue-500 hover:underline cursor-pointer">{user.email}</p>
-                            </div>
-                            <div>
-                                <p className="text-gray-500 text-xs uppercase font-semibold">Phone:</p>
-                                <p className="font-medium text-blue-500">9650789932</p> {/* Mock Data as per screenshot */}
-                            </div>
-                            <div>
-                                <p className="text-gray-500 text-xs uppercase font-semibold">Department:</p>
-                                <p className="font-medium text-blue-500">DOCSE</p>
-                            </div>
-                        </div>
-                    </div>
+
 
                     {/* Main Grid: Courses List (Left) & Course Details (Right) */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full">
