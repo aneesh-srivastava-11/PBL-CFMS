@@ -26,12 +26,8 @@ app.use(xss()); // Prevent XSS Attacks
 app.use(hpp()); // Prevent HTTP Parameter Pollution
 
 // Rate Limiting
-const limiter = rateLimit({
-    windowMs: 10 * 60 * 1000, // 10 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
-    message: { message: 'Too many requests from this IP, please try again after 10 minutes' }
-});
-app.use(limiter);
+// Rate Limiting DISABLED (User Request)
+// app.use(limiter);
 
 // Regular Middleware
 app.use(cors());
@@ -48,6 +44,8 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/files', require('./routes/fileRoutes'));
 app.use('/api/courses', require('./routes/courseRoutes'));
 app.use('/api/enroll', require('./routes/enrollmentRoutes'));
+app.use('/api/hod', require('./routes/hodRoutes'));
+app.use('/api/coordinator', require('./routes/coordinatorRoutes'));
 
 // Only listen if executed directly (not when imported by Vercel)
 if (require.main === module) {

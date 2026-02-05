@@ -17,27 +17,82 @@ exports.createCourse = async (req, res) => {
 exports.getCourses = async (req, res) => {
     try {
         let courses;
-        if (req.user.role === 'faculty') {
-            courses = await Course.findAll({ where: { faculty_id: req.user.id } });
-        } else if (req.user.role === 'student') {
-            // Robust 2-step fetch to avoid association magic issues
-            const Enrollment = require('../models/enrollmentModel');
-            const enrollments = await Enrollment.findAll({
-                where: { student_id: req.user.id },
-                attributes: ['course_id']
-            });
-            const courseIds = enrollments.map(e => e.course_id);
+        const includeCoordinator = { model: User, as: 'coordinator', attributes: ['id', 'name', 'email', 'phone_number'] };
 
-            if (courseIds.length > 0) {
-                courses = await Course.findAll({ where: { id: courseIds } });
-            } else {
-                courses = [];
+        if (req.user.role === 'faculty') {
+            const { Op } = require('sequelize');
+            const CourseSection = require('../models/courseSectionModel');
+
+            // 1. Get courses where user is creator or coordinator
+            const directCourses = await Course.findAll({
+                where: {
+                    [Op.or]: [
+                        { faculty_id: req.user.id },
+                        { coordinator_id: req.user.id }
+                    ]
+                },
+                include: [includeCoordinator]
+            });
+
+            // 2. Get courses where user is a section instructor
+            const sectionAssignments = await CourseSection.findAll({
+                where: { instructor_id: req.user.id },
+                include: [{ model: Course, as: 'course', include: [includeCoordinator] }]
+            });
+
+            // 3. Merge and Deduplicate
+            const courseMap = new Map();
+            directCourses.forEach(c => courseMap.set(c.id, c));
+            sectionAssignments.forEach(sa => {
+                if (sa.course) courseMap.set(sa.course.id, sa.course);
+            });
+
+            courses = Array.from(courseMap.values());
+        } else if (req.user.role === 'student') {
+            const Enrollment = require('../models/enrollmentModel');
+            const CourseSection = require('../models/courseSectionModel');
+
+            // Fetch Enrollments with Section Info
+            const enrollments = await Enrollment.findAll({
+                where: { student_id: req.user.id }
+            });
+
+            // For each enrollment, get course AND section info
+            const courseData = [];
+            for (const enrollment of enrollments) {
+                const course = await Course.findByPk(enrollment.course_id, {
+                    include: [includeCoordinator]
+                });
+
+                if (course) {
+                    // Find the section instructor
+                    let instructor = null;
+                    if (enrollment.section) {
+                        const sectionData = await CourseSection.findOne({
+                            where: { course_id: course.id, section: enrollment.section },
+                            include: [{ model: User, as: 'instructor', attributes: ['id', 'name', 'email', 'phone_number'] }]
+                        });
+                        if (sectionData) instructor = sectionData.instructor;
+                    }
+
+                    // Convert to JSON and attach info
+                    const cJson = course.toJSON();
+                    cJson.my_section = enrollment.section;
+                    cJson.my_instructor = instructor;
+                    courseData.push(cJson);
+                }
             }
+            courses = courseData;
+
         } else {
-            courses = await Course.findAll(); // Admin see all
+            // Admin/HOD
+            courses = await Course.findAll({
+                include: [includeCoordinator]
+            });
         }
         res.json(courses);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ message: error.message });
     }
 };

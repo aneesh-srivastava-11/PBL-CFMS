@@ -16,12 +16,16 @@ const User = sequelize.define('User', {
         allowNull: false,
         unique: true
     },
+    phone_number: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
     password: {
         type: DataTypes.STRING,
         allowNull: true // Changed to true since we use Firebase mostly now
     },
     role: {
-        type: DataTypes.ENUM('admin', 'faculty', 'student', 'reviewer'),
+        type: DataTypes.ENUM('admin', 'faculty', 'student', 'reviewer', 'hod'),
         defaultValue: 'student'
     },
     is_coordinator: {

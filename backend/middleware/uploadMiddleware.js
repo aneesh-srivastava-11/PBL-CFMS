@@ -13,7 +13,7 @@ const storage = multer.diskStorage({
 
 const checkFileType = (file, cb) => {
     // Allowed extensions - Added PowerPoint support
-    const filetypes = /pdf|doc|docx|ppt|pptx|jpg|jpeg|png/;
+    const filetypes = /pdf|doc|docx|ppt|pptx|jpg|jpeg|png|xlsx|xls/;
     // Check ext
     const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
     // Check mime

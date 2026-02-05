@@ -22,6 +22,14 @@ const Course = sequelize.define('Course', {
     faculty_id: {
         type: DataTypes.INTEGER,
         allowNull: false
+    },
+    coordinator_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: 'users',
+            key: 'id'
+        }
     }
 }, {
     tableName: 'courses',

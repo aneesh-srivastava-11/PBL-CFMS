@@ -46,4 +46,13 @@ const authorize = (...roles) => {
     };
 };
 
-module.exports = { protect, authorize };
+// Check if user is HOD
+const requireHOD = (req, res, next) => {
+    if (req.user.role !== 'hod' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Access denied. HOD only.' });
+    }
+    next();
+};
+
+// Start export
+module.exports = { protect, authorize, requireHOD };

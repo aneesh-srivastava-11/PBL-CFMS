@@ -109,13 +109,34 @@ exports.getEnrolledStudents = async (req, res) => {
             return res.status(404).json({ message: 'Course not found' });
         }
 
-        // Check ownership
-        if (course.faculty_id !== req.user.id && req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'Not authorized' });
+        // Check Permission & Filter Scope
+        let sectionFilter = null;
+
+        if (req.user.role === 'admin' || course.faculty_id === req.user.id || course.coordinator_id === req.user.id) {
+            // Full Access: See all students
+        } else {
+            // Check if Section Instructor
+            const CourseSection = require('../models/courseSectionModel');
+            const assignment = await CourseSection.findOne({
+                where: { course_id: courseId, instructor_id: req.user.id }
+            });
+
+            if (assignment) {
+                // Restricted Access: See only own section
+                sectionFilter = assignment.section;
+            } else {
+                return res.status(403).json({ message: 'Not authorized to view students for this course' });
+            }
         }
 
-        console.log(`[DEBUG] Found ${course.students.length} students for course ${courseId}`);
-        res.json(course.students);
+        // Filter students in memory (simpler than complex include where) or use DB filter if possible
+        let students = course.students;
+        if (sectionFilter) {
+            students = students.filter(s => s.section === sectionFilter);
+        }
+
+        console.log(`[DEBUG] Found ${students.length} students for course ${courseId} (Filter: ${sectionFilter || 'All'})`);
+        res.json(students);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server Error' });

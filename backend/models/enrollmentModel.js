@@ -11,7 +11,7 @@ const Enrollment = sequelize.define('Enrollment', {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
-            model: 'Users', // 'Users' refers to table name
+            model: 'users', // 'users' refers to table name
             key: 'id',
         }
     },
@@ -19,9 +19,13 @@ const Enrollment = sequelize.define('Enrollment', {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
-            model: 'Courses', // 'Courses' refers to table name
+            model: 'courses', // 'courses' refers to table name
             key: 'id',
         }
+    },
+    section: {
+        type: DataTypes.STRING,
+        allowNull: true
     }
 }, {
     tableName: 'enrollments',

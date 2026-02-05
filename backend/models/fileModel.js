@@ -32,6 +32,18 @@ const File = sequelize.define('File', {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW
     },
+    section: {
+        type: DataTypes.STRING,
+        allowNull: true // NULL = Visible to All (Coordinator upload)
+    },
+    uploaded_by: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: 'users',
+            key: 'id'
+        }
+    },
     is_visible: {
         type: DataTypes.BOOLEAN,
         defaultValue: true
