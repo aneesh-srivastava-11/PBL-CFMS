@@ -130,10 +130,10 @@ const Dashboard = () => {
     const fetchFaculties = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            // HOD uses strict HOD route, others (Coordinators) use the shared course route
+            // HOD uses strict HOD route, others (Coordinators) use the coordinator route
             const endpoint = (user.role === 'hod' || user.role === 'admin')
                 ? `${apiUrl}/api/hod/faculties`
-                : `${apiUrl}/api/courses/faculties-list`;
+                : `${apiUrl}/api/coordinator/faculties`;
 
             const { data } = await axios.get(endpoint, config);
             setFaculties(data);
@@ -543,6 +543,22 @@ const Dashboard = () => {
                                                 <button type="submit" className="bg-purple-600 text-white text-xs px-2 py-1 rounded hover:bg-purple-700">Upload</button>
                                             </div>
                                         </form>
+                                    </div>
+
+                                    {/* NEW: View Lists */}
+                                    <div className="mt-4 pt-4 border-t border-purple-200 flex gap-2">
+                                        <button
+                                            onClick={() => navigate('/hod/faculties')}
+                                            className="flex-1 bg-purple-600 text-white text-xs py-2 rounded hover:bg-purple-700 text-center"
+                                        >
+                                            View Faculties
+                                        </button>
+                                        <button
+                                            onClick={() => navigate('/hod/students')}
+                                            className="flex-1 bg-purple-600 text-white text-xs py-2 rounded hover:bg-purple-700 text-center"
+                                        >
+                                            View Students
+                                        </button>
                                     </div>
                                 </div>
                             )}

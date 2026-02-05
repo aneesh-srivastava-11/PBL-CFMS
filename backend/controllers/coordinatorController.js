@@ -41,7 +41,49 @@ exports.assignInstructorToSection = async (req, res) => {
             });
         }
 
-        res.json({ message: `Assigned ${instructor.name} to Section ${section}`, assignment });
+        // --- Auto-Enroll Students of this Section ---
+        const { Enrollment } = require('../models');
+
+        const targetSection = section.trim().toLowerCase();
+        console.log(`[AutoEnroll] Target Section: '${targetSection}' (Original: '${section}')`);
+
+        // 1. Find all students belonging to this section (Robust In-Memory Filter)
+        // Fetching all students to ensure case-insensitive matching works regardless of DB collation
+        const allStudents = await User.findAll({
+            where: { role: 'student' },
+            attributes: ['id', 'section']
+        });
+
+        const studentsInSection = allStudents.filter(s =>
+            s.section && s.section.trim().toLowerCase() === targetSection
+        );
+
+        console.log(`[AutoEnroll] Found ${studentsInSection.length} matching students.`);
+
+        // 2. Enroll them if not already enrolled
+        let enrolledCount = 0;
+        for (const student of studentsInSection) {
+            const [enrollment, created] = await Enrollment.findOrCreate({
+                where: {
+                    student_id: student.id,
+                    course_id: courseId
+                },
+                defaults: {
+                    student_id: student.id,
+                    course_id: courseId,
+                    section: section.trim() // Use the clean formatted section
+                }
+            });
+            if (created) enrolledCount++;
+        }
+
+        console.log(`[AutoEnroll] Successfully enrolled ${enrolledCount} new students.`);
+
+        res.json({
+            message: `Assigned ${instructor.name} to Section ${section}. Auto-enrolled ${enrolledCount} students (Found ${studentsInSection.length} in section).`,
+            assignment,
+            auto_enrolled_count: enrolledCount
+        });
 
     } catch (error) {
         console.error(error);

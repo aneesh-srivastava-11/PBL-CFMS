@@ -64,7 +64,7 @@ exports.getAllFaculties = async (req, res) => {
     try {
         const faculties = await User.findAll({
             where: { role: 'faculty' },
-            attributes: ['id', 'name', 'email']
+            attributes: ['id', 'name', 'email', 'phone_number']
         });
         res.json(faculties);
     } catch (error) {

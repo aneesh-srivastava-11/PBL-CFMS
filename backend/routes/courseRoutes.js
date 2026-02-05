@@ -7,8 +7,7 @@ router.route('/')
     .get(protect, getCourses)
     .post(protect, authorize('admin', 'hod'), createCourse);
 
-// Route to get list of faculties (for Coordinators to assign instructors)
-router.get('/faculties-list', protect, authorize('admin', 'faculty', 'hod'), require('../controllers/hodController').getAllFaculties);
+
 
 router.route('/:id')
     .get(protect, getCourseById)
@@ -18,7 +17,5 @@ router.get('/:id/download', protect, authorize('admin', 'faculty', 'reviewer', '
 router.post('/:id/generate-pdf', protect, authorize('admin', 'faculty', 'hod'), require('../controllers/courseController').generateCoursePDF);
 
 
-// Route to get list of faculties (for Coordinators to assign instructors)
-router.get('/faculties-list', protect, authorize('admin', 'faculty', 'hod'), require('../controllers/hodController').getAllFaculties);
 
 module.exports = router;

@@ -12,4 +12,7 @@ router.post('/courses/:courseId/sections', assignInstructorToSection);
 // Get Sections (Used by HOD/Coordinator/Instructor)
 router.get('/courses/:courseId/sections', getCourseSections);
 
+// Get Faculties List (For assigning instructors) - Reusing HOD controller function
+router.get('/faculties', require('../controllers/hodController').getAllFaculties);
+
 module.exports = router;
