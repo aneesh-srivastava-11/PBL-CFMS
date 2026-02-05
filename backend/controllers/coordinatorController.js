@@ -12,7 +12,7 @@ exports.assignInstructorToSection = async (req, res) => {
         if (!course) return res.status(404).json({ message: 'Course not found' });
 
         // Verify Caller is the Coordinator
-        if (course.coordinator_id !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'hod') {
+        if (course.coordinator_id !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ message: 'Not authorized. Only the Course Coordinator can do this.' });
         }
 

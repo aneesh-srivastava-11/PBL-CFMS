@@ -486,7 +486,7 @@ const Dashboard = () => {
                                                     </div>
                                                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{course.semester}</span>
                                                 </div>
-                                                {user.role === 'faculty' && (
+                                                {(user.role === 'hod' || user.role === 'admin') && (
                                                     <button
                                                         className="text-xs text-red-400 hover:text-red-600 mt-2 hover:underline"
                                                         onClick={(e) => {
@@ -613,7 +613,7 @@ const Dashboard = () => {
                                         )}
 
                                         {/* COORDINATOR: MANAGE INSTRUCTORS */}
-                                        {(selectedCourse.coordinator_id === user.id || user.role === 'hod' || user.role === 'admin') && (
+                                        {(selectedCourse.coordinator_id === user.id || user.role === 'admin') && (
                                             <div className="bg-blue-50 border border-blue-200 rounded p-4">
                                                 <h4 className="text-sm font-bold text-blue-800 mb-2 uppercase tracking-wide">Course Instructors (Section Map)</h4>
                                                 <form onSubmit={handleAssignInstructor} className="flex gap-2 mb-3">

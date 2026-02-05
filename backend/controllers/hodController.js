@@ -159,42 +159,44 @@ exports.bulkAddStudents = async (req, res) => {
         try { await unlinkFile(req.file.path); } catch (e) { }
         res.status(500).json({ message: 'Error processing' });
     }
-    // @desc    Get All Students (HOD Global List)
-    // @route   GET /api/hod/students
-    // @access  Private (HOD Only)
-    exports.getAllStudents = async (req, res) => {
-        try {
-            const students = await User.findAll({
-                where: { role: 'student' },
-                attributes: ['id', 'name', 'email', 'section', 'academic_semester', 'phone_number']
-            });
-            res.json(students);
-        } catch (error) {
-            console.error(error);
-            res.status(500).json({ message: 'Server Error' });
-        }
-    };
+};
 
-    // @desc    Update any User (HOD Global Edit)
-    // @route   PUT /api/hod/users/:id
-    // @access  Private (HOD Only)
-    exports.updateUser = async (req, res) => {
-        const { id } = req.params;
-        const { name, section, academic_semester, phone_number } = req.body;
+// @desc    Get All Students (HOD Global List)
+// @route   GET /api/hod/students
+// @access  Private (HOD Only)
+exports.getAllStudents = async (req, res) => {
+    try {
+        const students = await User.findAll({
+            where: { role: 'student' },
+            attributes: ['id', 'name', 'email', 'section', 'academic_semester', 'phone_number']
+        });
+        res.json(students);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
 
-        try {
-            const user = await User.findByPk(id);
-            if (!user) return res.status(404).json({ message: 'User not found' });
+// @desc    Update any User (HOD Global Edit)
+// @route   PUT /api/hod/users/:id
+// @access  Private (HOD Only)
+exports.updateUser = async (req, res) => {
+    const { id } = req.params;
+    const { name, section, academic_semester, phone_number } = req.body;
 
-            if (name) user.name = name;
-            if (section !== undefined) user.section = section; // Allow clearing
-            if (academic_semester !== undefined) user.academic_semester = academic_semester;
-            if (phone_number) user.phone_number = phone_number;
+    try {
+        const user = await User.findByPk(id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
 
-            await user.save();
-            res.json({ message: 'User updated successfully', user });
-        } catch (error) {
-            console.error(error);
-            res.status(500).json({ message: 'Server Error' });
-        }
-    };
+        if (name) user.name = name;
+        if (section !== undefined) user.section = section; // Allow clearing
+        if (academic_semester !== undefined) user.academic_semester = academic_semester;
+        if (phone_number) user.phone_number = phone_number;
+
+        await user.save();
+        res.json({ message: 'User updated successfully', user });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};

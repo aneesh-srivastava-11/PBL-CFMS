@@ -12,7 +12,7 @@ router.get('/faculties-list', protect, authorize('admin', 'faculty', 'hod'), req
 
 router.route('/:id')
     .get(protect, getCourseById)
-    .delete(protect, authorize('admin', 'faculty', 'hod'), require('../controllers/courseController').deleteCourse);
+    .delete(protect, authorize('admin', 'hod'), require('../controllers/courseController').deleteCourse);
 
 router.get('/:id/download', protect, authorize('admin', 'faculty', 'reviewer', 'hod'), require('../controllers/courseController').downloadCourseZip);
 router.post('/:id/generate-pdf', protect, authorize('admin', 'faculty', 'hod'), require('../controllers/courseController').generateCoursePDF);
