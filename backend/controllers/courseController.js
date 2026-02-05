@@ -181,7 +181,7 @@ exports.generateCoursePDF = async (req, res) => {
             'handout', 'attendance', 'assignment', 'marks',
             'academic_feedback', 'action_taken', 'exam_paper',
             'remedial', 'case_study', 'quiz', 'quiz_solution',
-            'exam_solution', 'assignment_solution'
+            'exam_solution', 'assignment_solution', 'materials'
         ];
 
         const missingTypes = requiredTypes.filter(type => !presentTypes.has(type));

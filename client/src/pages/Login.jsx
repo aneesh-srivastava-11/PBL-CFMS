@@ -76,59 +76,92 @@ const Login = () => {
     };
 
     return (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)' }}>
-            <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
-                <h2 style={{ marginBottom: '1.5rem', fontSize: '2rem', fontWeight: 'bold' }}>
-                    {isLogin ? 'Login' : 'Register'}
+        <div className="relative flex items-center justify-center h-screen w-full overflow-hidden">
+            {/* Background Image with Overlay */}
+            <div
+                className="absolute inset-0 z-0 w-full h-full bg-cover bg-center bg-no-repeat"
+                style={{ backgroundImage: "url('/src/assets/image.png')" }}
+            >
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+            </div>
+
+            {/* Glassmorphism Card */}
+            <form
+                onSubmit={handleSubmit}
+                className="relative z-10 bg-white/90 backdrop-blur-md p-10 rounded-2xl shadow-2xl w-full max-w-md border border-white/20"
+            >
+                <div className="flex justify-center mb-6">
+                    <img src="/src/assets/mujLogo.png" alt="MUJ Logo" className="h-20 drop-shadow-md" />
+                </div>
+
+                <h2 className="text-3xl font-bold mb-2 text-center text-orange-600">
+                    {isLogin ? 'Welcome Back' : 'Join Us'}
                 </h2>
-                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
-                    {isLogin ? 'Enter your credentials to access the portal.' : 'Create an account with your college email.'}
+                <p className="text-center text-gray-500 mb-8 text-sm">
+                    {isLogin ? 'Enter your credentials to access the portal' : 'Create your account to get started'}
                 </p>
 
-                {error && <div style={{ color: 'red', marginBottom: '1rem', background: 'rgba(255,0,0,0.1)', padding: '0.5rem' }}>{error}</div>}
-
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {!isLogin && (
+                {!isLogin && (
+                    <div className="mb-4">
                         <input
                             type="text"
                             placeholder="Full Name"
-                            className="input-field"
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             required
                         />
-                    )}
+                    </div>
+                )}
+
+                <div className="mb-4">
                     <input
                         type="email"
-                        placeholder="Email (e.g., student@muj.manipal.edu)"
-                        className="input-field"
+                        placeholder="Email (@muj.manipal.edu)"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
                     />
+                </div>
+
+                <div className="mb-6">
                     <input
                         type="password"
                         placeholder="Password"
-                        className="input-field"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
                     />
-                    <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem' }}>
-                        {isLogin ? 'Sign In' : 'Sign Up'}
-                    </button>
-                </form>
-
-                <div style={{ marginTop: '1.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                    {isLogin ? "Don't have an account? " : "Already have an account? "}
-                    <button
-                        onClick={() => setIsLogin(!isLogin)}
-                        style={{ background: 'none', border: 'none', color: 'var(--primary)', textDecoration: 'underline', cursor: 'pointer' }}
-                    >
-                        {isLogin ? 'Register' : 'Login'}
-                    </button>
                 </div>
-            </div>
+
+                {error && (
+                    <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 text-sm rounded">
+                        <p>{error}</p>
+                    </div>
+                )}
+
+                <button
+                    type="submit"
+                    className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                >
+                    {isLogin ? 'Sign In' : 'Create Account'}
+                </button>
+
+                <div className="mt-8 text-center border-t border-gray-200 pt-6">
+                    <p className="text-sm text-gray-600">
+                        {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+                        <button
+                            type="button"
+                            onClick={() => setIsLogin(!isLogin)}
+                            className="text-orange-600 font-semibold hover:text-orange-700 hover:underline transition-colors"
+                        >
+                            {isLogin ? 'Sign up' : 'Login'}
+                        </button>
+                    </p>
+                </div>
+            </form>
         </div>
     );
 };

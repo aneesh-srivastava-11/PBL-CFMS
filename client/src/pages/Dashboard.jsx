@@ -2,6 +2,9 @@ import { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
+import Sidebar from '../components/Sidebar';
+import TopHeader from '../components/TopHeader';
+import { Book, User as UserIcon, Folder as FolderIcon, FolderOpen, ChevronDown, Download, Trash2, Eye, EyeOff, XCircle, CheckCircle } from "lucide-react";
 
 const Dashboard = () => {
     console.log("Dashboard rendering");
@@ -311,546 +314,360 @@ const Dashboard = () => {
     };
 
 
-    if (loading || !user) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
+    if (loading || !user) return <div className="flex justify-center items-center h-screen text-orange-600">Loading...</div>;
 
     return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-dark)' }}>
-            <nav style={{ padding: '1rem 2rem', background: 'var(--bg-card)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h1 style={{ fontSize: '1.25rem', color: 'white' }}>Course File System</h1>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>{user.name} ({user.role})</span>
-                    {user.role === 'faculty' && (
-                        <button
-                            onClick={handleToggleCoordinator}
-                            className="btn"
-                            style={{
-                                background: user.is_coordinator ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
-                                border: user.is_coordinator ? 'none' : '1px solid rgba(255,255,255,0.2)'
-                            }}
-                            title="Toggle Coordinator Privileges"
-                        >
-                            {user.is_coordinator ? 'Coordinator: ON' : 'Coordinator: OFF'}
-                        </button>
-                    )}
-                    <button onClick={logout} className="btn" style={{ background: 'rgba(255,255,255,0.1)' }}>Logout</button>
-                </div>
-            </nav>
+        <div className="flex min-h-screen bg-gray-50 font-sans text-gray-800">
+            {/* 1. Sidebar */}
+            <Sidebar user={user} onLogout={logout} />
 
-            <div className="container" style={{ padding: '2rem 1rem' }}>
-                {/* Course Creation (Faculty only) */}
-                {(user.role === 'faculty') && (
-                    <div className="card" style={{ marginBottom: '2rem' }}>
-                        <h3 style={{ marginBottom: '1.5rem' }}>Add New Course</h3>
-                        <form onSubmit={handleCreateCourse} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
+            {/* 2. Main Content Area */}
+            <div className="flex-1 flex flex-col h-screen overflow-hidden">
+                <TopHeader user={user} />
+
+                {/* Scrollable Content */}
+                <main className="flex-1 overflow-y-auto p-6 md:p-8">
+
+                    {/* Top Info Card */}
+                    <div className="bg-white rounded-lg shadow-sm border-t-4 border-orange-500 p-6 mb-8">
+                        <div className="flex items-center space-x-2 mb-4">
+                            <UserIcon className="h-5 w-5 text-gray-600" />
+                            <h2 className="text-lg font-bold text-gray-700">Class Coordinator Information</h2>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
                             <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Course Code</label>
-                                <input className="input-field" placeholder="e.g. CS101" value={newCourse.course_code} onChange={e => setNewCourse({ ...newCourse, course_code: e.target.value })} required />
+                                <p className="text-gray-500 text-xs uppercase font-semibold">Name:</p>
+                                <p className="font-medium text-orange-600">{user.name}</p>
                             </div>
                             <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Course Name</label>
-                                <input className="input-field" placeholder="Intro to CS" value={newCourse.course_name} onChange={e => setNewCourse({ ...newCourse, course_name: e.target.value })} required />
+                                <p className="text-gray-500 text-xs uppercase font-semibold">Email:</p>
+                                <p className="font-medium text-blue-500 hover:underline cursor-pointer">{user.email}</p>
                             </div>
                             <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Semester</label>
-                                <input className="input-field" placeholder="Fall 2025" value={newCourse.semester} onChange={e => setNewCourse({ ...newCourse, semester: e.target.value })} required />
+                                <p className="text-gray-500 text-xs uppercase font-semibold">Phone:</p>
+                                <p className="font-medium text-blue-500">9650789932</p> {/* Mock Data as per screenshot */}
                             </div>
-                            <button type="submit" className="btn btn-primary" style={{ padding: '0.75rem 2rem' }}>Add</button>
-                        </form>
+                            <div>
+                                <p className="text-gray-500 text-xs uppercase font-semibold">Department:</p>
+                                <p className="font-medium text-blue-500">DOCSE</p>
+                            </div>
+                        </div>
                     </div>
-                )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                    {courses.map(course => (
-                        <div key={course.id} className="card" style={{ borderColor: selectedCourse?.id === course.id ? 'var(--primary)' : 'transparent' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
-                                <div>
-                                    <h3 style={{ fontSize: '1.25rem' }}>{course.course_name}</h3>
-                                    <p style={{ color: 'var(--primary)', fontWeight: '600', fontSize: '0.875rem' }}>{course.course_code}</p>
-                                </div>
-                                <span style={{ background: 'rgba(255,255,255,0.1)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>{course.semester}</span>
+                    {/* Main Grid: Courses List (Left) & Course Details (Right) */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full">
+
+                        {/* LEFT COLUMN: List of Courses (Notifications in screenshot) */}
+                        <div className="lg:col-span-1 bg-white rounded-lg shadow-sm flex flex-col h-fit md:min-h-[500px]">
+                            <div className="p-4 border-b border-gray-100 bg-gray-50 rounded-t-lg">
+                                <h3 className="font-bold text-lg text-gray-800 border-l-4 border-black pl-3">Your Courses</h3>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button
-                                    className="btn"
-                                    style={{ flex: 1, background: selectedCourse?.id === course.id ? 'var(--primary)' : 'rgba(255,255,255,0.05)' }}
-                                    onClick={() => setSelectedCourse(course)}
-                                >
-                                    {selectedCourse?.id === course.id ? 'Active' : 'Select'}
-                                </button>
-                                {(user.role === 'faculty') && (
-                                    <button
-                                        className="btn"
-                                        style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', padding: '0.5rem' }}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (window.confirm(`Delete course ${course.course_code}? This will remove all associated files.`)) {
-                                                handleDeleteCourse(course.id);
-                                            }
-                                        }}
-                                    >
-                                        Delete
-                                    </button>
+                            {/* Course List */}
+                            <div className="p-0">
+                                {courses.length === 0 ? (
+                                    <div className="p-6 text-center text-gray-500">No courses found.</div>
+                                ) : (
+                                    <div className="divide-y divide-gray-100">
+                                        {courses.map(course => (
+                                            <div
+                                                key={course.id}
+                                                onClick={() => setSelectedCourse(course)}
+                                                className={`p-4 cursor-pointer transition-all hover:bg-orange-50 border-l-4 
+                                                    ${selectedCourse?.id === course.id ? 'border-orange-500 bg-orange-50' : 'border-transparent'}`}
+                                            >
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 className="font-semibold text-gray-800">{course.course_name}</h4>
+                                                        <p className="text-sm text-gray-500 font-medium">{course.course_code}</p>
+                                                    </div>
+                                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{course.semester}</span>
+                                                </div>
+                                                {user.role === 'faculty' && (
+                                                    <button
+                                                        className="text-xs text-red-400 hover:text-red-600 mt-2 hover:underline"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (window.confirm(`Delete course ${course.course_code}?`)) {
+                                                                handleDeleteCourse(course.id);
+                                                            }
+                                                        }}
+                                                    >
+                                                        Delete Course
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Add Course Button (Faculty Only) */}
+                            {user.role === 'faculty' && (
+                                <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-lg">
+                                    <h4 className="text-sm font-semibold mb-2 text-gray-600">Add New Course</h4>
+                                    <form onSubmit={handleCreateCourse} className="space-y-2">
+                                        <input className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500" placeholder="Code (e.g. CS101)" value={newCourse.course_code} onChange={e => setNewCourse({ ...newCourse, course_code: e.target.value })} required />
+                                        <input className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500" placeholder="Name" value={newCourse.course_name} onChange={e => setNewCourse({ ...newCourse, course_name: e.target.value })} required />
+                                        <input className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500" placeholder="Semester" value={newCourse.semester} onChange={e => setNewCourse({ ...newCourse, semester: e.target.value })} required />
+                                        <button type="submit" className="w-full bg-orange-600 text-white text-sm font-medium py-2 rounded hover:bg-orange-700 transition">Add Course</button>
+                                    </form>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* RIGHT COLUMN: Selected Course Content (List of Events in screenshot) */}
+                        <div className="lg:col-span-2 bg-white rounded-lg shadow-sm min-h-[500px] flex flex-col">
+                            <div className="p-4 border-b border-gray-100 bg-gray-50 rounded-t-lg flex justify-between items-center">
+                                <h3 className="font-bold text-lg text-gray-800 border-l-4 border-orange-500 pl-3">
+                                    {selectedCourse ? `Manage: ${selectedCourse.course_name}` : 'Course Details'}
+                                </h3>
+                                {selectedCourse && user.role === 'faculty' && (
+                                    <div className="flex gap-2">
+                                        <button onClick={handleDownloadZip} className="text-xs bg-white border border-orange-500 text-orange-600 px-3 py-1.5 rounded hover:bg-orange-50 transition">Download Zip</button>
+                                        {user.is_coordinator && (
+                                            <button onClick={() => handleGenerateCourseFile(false)} disabled={isGenerating} className="text-xs bg-orange-600 text-white px-3 py-1.5 rounded hover:bg-orange-700 transition">
+                                                {isGenerating ? 'Wait...' : 'Generate PDF'}
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="p-6 flex-1">
+                                {!selectedCourse ? (
+                                    <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-4">
+                                        <Book className="h-16 w-16 opacity-20" />
+                                        <p>Select a course from the left to view details and manage files.</p>
+                                    </div>
+                                ) : (
+                                    <div className="animate-fade-in">
+
+                                        {/* Upload Section */}
+                                        {user.role === 'faculty' && (
+                                            <div className="bg-orange-50 border border-orange-100 rounded p-4 mb-6">
+                                                <h4 className="text-sm font-bold text-orange-800 mb-3 uppercase tracking-wide">Upload Document</h4>
+                                                <form onSubmit={handleFileUpload} className="flex flex-col md:flex-row gap-3 items-end">
+                                                    <div className="flex-1 w-full">
+                                                        <label className="text-xs font-semibold text-gray-500 mb-1 block">File</label>
+                                                        <input type="file" className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200" onChange={e => setFile(e.target.files[0])} required />
+                                                    </div>
+                                                    <div className="w-full md:w-48">
+                                                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Type</label>
+                                                        <select className="w-full text-sm border-gray-300 rounded focus:border-orange-500 focus:ring-orange-500 p-2" value={fileType} onChange={e => setFileType(e.target.value)}>
+                                                            <option value="handout">Handout</option>
+                                                            <option value="attendance">Attendance</option>
+                                                            <option value="assignment">Assignment</option>
+                                                            <option value="marks">Marks</option>
+                                                            <option value="materials">Materials</option> {/* ADDED MATERIALS */}
+                                                            <option value="academic_feedback">Academic Feedback</option>
+                                                            <option value="action_taken">Action Taken</option>
+                                                            <option value="exam_paper">Exam Paper</option>
+                                                            <option value="remedial">Remedial Assignment</option>
+                                                            <option value="case_study">Case Study</option>
+                                                            <option value="quiz">Quiz</option>
+                                                            <option value="quiz_solution">Quiz Solution</option>
+                                                            <option value="exam_solution">Exam Solution</option>
+                                                            <option value="assignment_solution">Assignment Solution</option>
+                                                            <option value="other">Others</option>
+                                                        </select>
+                                                    </div>
+                                                    <button type="submit" className="w-full md:w-auto bg-orange-600 text-white text-sm font-bold py-2 px-6 rounded hover:bg-orange-700 transition">Upload</button>
+                                                </form>
+                                                {uploadStatus && <p className="text-xs text-green-600 mt-2 font-medium">{uploadStatus}</p>}
+                                            </div>
+                                        )}
+
+                                        {/* Files List */}
+                                        <div className="space-y-4">
+                                            {/* ENROLLMENT SECTION (Coordinator) */}
+                                            {user.is_coordinator && (
+                                                <div className="border border-green-200 bg-green-50 rounded-lg p-4 mb-6">
+                                                    <div className="flex justify-between items-center mb-4">
+                                                        <h4 className="font-bold text-green-800 flex items-center gap-2">
+                                                            <UserIcon size={16} /> Student Enrollment
+                                                        </h4>
+                                                        <button
+                                                            onClick={() => fetchEnrolledStudents(selectedCourse.id)}
+                                                            className="text-xs text-green-600 hover:underline"
+                                                        >
+                                                            Refresh List ({enrolledStudents.length})
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Quick Enroll */}
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div>
+                                                            <h5 className="text-xs font-semibold text-gray-500 mb-2">Single Enroll</h5>
+                                                            <form onSubmit={handleEnrollStudent} className="flex gap-2">
+                                                                <input className="flex-1 text-sm border border-gray-300 rounded p-2 focus:ring-green-500 focus:border-green-500" placeholder="Student Email" value={studentEmail} onChange={e => setStudentEmail(e.target.value)} required />
+                                                                <button type="submit" className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">Add</button>
+                                                            </form>
+                                                        </div>
+                                                        <div className="border-l border-green-200 pl-4">
+                                                            <h5 className="text-xs font-semibold text-gray-500 mb-2">Bulk Enroll</h5>
+                                                            <form onSubmit={async (e) => {
+                                                                e.preventDefault();
+                                                                const fileInput = e.target.elements.files;
+                                                                if (!fileInput || !fileInput.files[0]) { alert('Please select a file'); return; }
+                                                                const formData = new FormData();
+                                                                formData.append('file', fileInput.files[0]);
+                                                                try {
+                                                                    const config = { headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'multipart/form-data' } };
+                                                                    await axios.post(`${import.meta.env.VITE_API_URL}/api/enroll/${selectedCourse.id}/bulk`, formData, config);
+                                                                    alert('Uploaded!'); fetchEnrolledStudents(selectedCourse.id); e.target.reset();
+                                                                } catch (err) { alert('Failed'); }
+                                                            }} className="flex gap-2">
+                                                                <input type="file" name="files" accept=".xlsx, .xls" className="flex-1 text-sm text-gray-500" required />
+                                                                <button type="submit" className="text-xs border border-green-600 text-green-700 px-3 py-1 rounded hover:bg-green-50">Upload Excel</button>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* FILES DISPLAY */}
+                                            {courseFiles.length > 0 ? (
+                                                Object.entries(courseFiles.reduce((acc, file) => {
+                                                    const type = file.file_type || 'other';
+                                                    if (!acc[type]) acc[type] = [];
+                                                    acc[type].push(file);
+                                                    return acc;
+                                                }, {})).map(([type, files]) => (
+                                                    <div key={type} className="border border-gray-200 rounded-lg overflow-hidden">
+                                                        <div
+                                                            className="bg-gray-50 px-4 py-3 cursor-pointer flex justify-between items-center hover:bg-gray-100 transition"
+                                                            onClick={() => setExpandedFolders(prev => ({ ...prev, [type]: !prev[type] }))}
+                                                        >
+                                                            <div className="flex items-center gap-2 font-medium text-gray-700 capitalize">
+                                                                {expandedFolders[type] ? <FolderOpen size={18} className="text-orange-500" /> : <FolderIcon size={18} className="text-orange-400" />}
+                                                                {type.replace(/_/g, ' ')}
+                                                                <span className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded-full">{files.length}</span>
+                                                            </div>
+                                                            <ChevronDown size={16} className={`text-gray-400 transition-transform ${expandedFolders[type] ? 'rotate-180' : ''}`} />
+                                                        </div>
+
+                                                        {expandedFolders[type] && (
+                                                            <div className="bg-white p-2 space-y-1 border-t border-gray-100">
+                                                                {files.map(doc => (
+                                                                    <div key={doc.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded group">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded flex items-center justify-center text-xs font-bold uppercase">
+                                                                                {doc.filename.split('.').pop()}
+                                                                            </div>
+                                                                            <div className="flex flex-col">
+                                                                                <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]">{doc.filename}</span>
+                                                                                <span className="text-xs text-gray-400">{new Date(doc.uploaded_at).toLocaleDateString()}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                            {user.role === 'faculty' && (
+                                                                                <button onClick={() => handleToggleVisibility(doc.id)} className={`p-1 rounded ${doc.is_visible ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`} title="Toggle Visibility">
+                                                                                    {doc.is_visible ? <Eye size={14} /> : <EyeOff size={14} />}
+                                                                                </button>
+                                                                            )}
+                                                                            <button onClick={(e) => handleDownloadFile(e, doc.id, doc.filename)} className="p-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100" title="Download">
+                                                                                <Download size={14} />
+                                                                            </button>
+                                                                            {user.role === 'faculty' && (
+                                                                                <button onClick={() => handleDeleteFile(doc.id)} className="p-1 bg-red-50 text-red-600 rounded hover:bg-red-100" title="Delete">
+                                                                                    <Trash2 size={14} />
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-10 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                                                    <p className="text-gray-500 text-sm">No files uploaded in this course yet.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                         </div>
-                    ))}
+                    </div>
+                </main>
+            </div>
+
+            {/* Validation Modal (Course File Generation) */}
+            {showValidationModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Incomplete Course File</h3>
+                        <p className="text-sm text-gray-600 mb-4">The following mandatory documents are missing:</p>
+                        <div className="max-h-60 overflow-y-auto space-y-2 mb-6">
+                            {requiredTypes.map(type => (
+                                <div key={type} className={`flex items-center justify-between p-2 rounded text-sm ${missingFiles.includes(type) ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>
+                                    <span className="capitalize">{type.replace(/_/g, ' ')}</span>
+                                    {missingFiles.includes(type) ? <XCircle size={16} /> : <CheckCircle size={16} />}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => setShowValidationModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                            <button onClick={() => handleGenerateCourseFile(true)} className="px-4 py-2 text-sm bg-orange-600 text-white rounded hover:bg-orange-700">Force Generate</button>
+                        </div>
+                    </div>
                 </div>
+            )}
 
-                {selectedCourse && (
-                    <div className="card" style={{ marginTop: '2rem', animation: 'fadeIn 0.3s ease-in-out' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
-                            <h3 style={{ margin: 0 }}>
-                                Manage Files: <span style={{ color: 'var(--primary)' }}>{selectedCourse.course_code}</span>
-                            </h3>
-                            {(user.role === 'faculty') && (
-                                <div style={{ display: 'flex', gap: '1rem' }}>
-                                    <button
-                                        className="btn"
-                                        style={{ background: 'var(--bg-card)', border: '1px solid var(--primary)', color: 'var(--primary)' }}
-                                        onClick={handleDownloadZip}
-                                    >
-                                        Download Zip
-                                    </button>
-                                    {user.is_coordinator && (
-                                        <button
-                                            className="btn btn-primary"
-                                            onClick={() => handleGenerateCourseFile(false)}
-                                            disabled={isGenerating}
-                                        >
-                                            {isGenerating ? 'Generating...' : 'Generate Course File'}
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        {(user.role === 'faculty') && (
-                            <form onSubmit={handleFileUpload} style={{ display: 'flex', gap: '1rem', alignItems: 'end', marginBottom: '1rem' }}>
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Select Document</label>
-                                    <input type="file" className="input-field" onChange={e => setFile(e.target.files[0])} required />
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Document Type</label>
-                                    <select className="input-field" value={fileType} onChange={e => setFileType(e.target.value)}>
-                                        <option value="handout">Handout</option>
-                                        <option value="attendance">Attendance</option>
-                                        <option value="assignment">Assignment</option>
-                                        <option value="marks">Marks</option>
-                                        <option value="academic_feedback">Academic Feedback</option>
-                                        <option value="action_taken">Action Taken</option>
-                                        <option value="exam_paper">Exam Paper</option>
-                                        <option value="remedial">Remedial Assignment</option>
-                                        <option value="case_study">Case Study</option>
-                                        <option value="quiz">Quiz</option>
-                                        <option value="quiz_solution">Quiz Solution</option>
-                                        <option value="exam_solution">Exam Solution</option>
-                                        <option value="assignment_solution">Assignment Solution</option>
-                                        <option value="other">Others</option>
-                                    </select>
-                                </div>
-                                <button type="submit" className="btn btn-primary">Upload</button>
-                            </form>
-                        )}
-
-                        {uploadStatus && <div style={{ color: 'var(--success)', marginBottom: '1rem' }}>{uploadStatus}</div>}
-
-                        {/* Enroll Student Form (Coordinator Only) - Placed BEFORE the list */}
-                        {/* Enroll Student Form (Coordinator Only) - Placed BEFORE the list */}
-                        {user.is_coordinator && (
-                            <div style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                                <h4 style={{ marginBottom: '1rem', color: '#10B981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <span>👨‍🎓</span> Manage Enrollment
-                                </h4>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                                    {/* Single Enroll */}
-                                    <div>
-                                        <h5 style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Enroll Single Student</h5>
-                                        <form onSubmit={handleEnrollStudent} style={{ display: 'flex', gap: '0.5rem' }}>
-                                            <input
-                                                type="email"
-                                                className="input-field"
-                                                placeholder="Student Email"
-                                                value={studentEmail}
-                                                onChange={e => setStudentEmail(e.target.value)}
-                                                required
-                                                style={{ flex: 1 }}
-                                            />
-                                            <button type="submit" className="btn btn-primary">Enroll</button>
-                                        </form>
-                                    </div>
-
-                                    {/* Bulk Enroll */}
-                                    <div style={{ paddingLeft: '2rem', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                            <h5 style={{ color: 'var(--text-muted)', margin: 0 }}>Bulk Enroll</h5>
-                                            <a
-                                                href="https://template-formatter-aneesh.vercel.app/"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}
-                                            >
-                                                🔗 Format Template Tool
-                                            </a>
-                                        </div>
-
-                                        <form onSubmit={async (e) => {
-                                            e.preventDefault();
-                                            const fileInput = e.target.elements.files;
-                                            if (!fileInput || !fileInput.files[0]) {
-                                                alert('Please select a file');
-                                                return;
-                                            }
-                                            const fileToUpload = fileInput.files[0];
-
-                                            // DIRECT UPLOAD (No Preview)
-                                            const formData = new FormData();
-                                            formData.append('file', fileToUpload);
-                                            try {
-                                                const token = user.token;
-                                                const config = { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } };
-
-                                                // Direct upload without preview
-                                                const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/enroll/${selectedCourse.id}/bulk`, formData, config);
-
-                                                alert(`Upload Complete!\nEnrolled: ${res.data.enrolled_count} students`);
-                                                fetchEnrolledStudents(selectedCourse.id);
-                                                e.target.reset(); // Reset form
-
-                                            } catch (err) {
-                                                console.error(err);
-                                                alert(err.response?.data?.message || 'Bulk upload failed.');
-                                            }
-                                        }}>
-                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                <input type="file" name="files" accept=".xlsx, .xls" className="input-field" required style={{ flex: 1 }} />
-                                                <button type="submit" className="btn" style={{ background: 'var(--bg-card)', border: '1px solid var(--primary)', color: 'var(--primary)' }}>Bulk Upload</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-
-                                {/* Enrolled List Preview */}
-                                <div style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
-                                    <h5 style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span>Enrolled Students ({enrolledStudents.length})</span>
-                                        <button
-                                            onClick={() => fetchEnrolledStudents(selectedCourse.id)}
-                                            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.8rem' }}
-                                        >
-                                            🔄 Refresh
-                                        </button>
-                                    </h5>
-
-                                    {/* Search Input */}
-                                    <input
-                                        type="text"
-                                        placeholder="🔍 Search by name or email..."
-                                        className="input-field"
-                                        value={studentSearchQuery}
-                                        onChange={(e) => setStudentSearchQuery(e.target.value)}
-                                        style={{ marginBottom: '1rem' }}
-                                    />
-
-                                    <details style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '4px' }} open>
-                                        <summary style={{ padding: '0.75rem', cursor: 'pointer', color: 'white', userSelect: 'none' }}>
-                                            View Student List {enrolledStudents.length > 0 ? '⬇️' : ''}
-                                        </summary>
-                                        <div style={{ maxHeight: '400px', overflowY: 'auto', padding: '0.5rem' }}>
-                                            {enrolledStudents.length === 0 ? (
-                                                <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>No students enrolled yet.</div>
-                                            ) : (
-                                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                                                    <thead>
-                                                        <tr style={{ textAlign: 'left', color: 'var(--text-muted)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                                                            <th style={{ padding: '0.5rem' }}>Name</th>
-                                                            <th style={{ padding: '0.5rem' }}>Email</th>
-                                                            <th style={{ padding: '0.5rem' }}>Section</th>
-                                                            <th style={{ padding: '0.5rem' }}>Sem</th>
-                                                            <th style={{ padding: '0.5rem' }}>Action</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {enrolledStudents
-                                                            .filter(s => {
-                                                                if (!studentSearchQuery) return true;
-                                                                const query = studentSearchQuery.toLowerCase();
-                                                                return (
-                                                                    (s.name && s.name.toLowerCase().includes(query)) ||
-                                                                    (s.email && s.email.toLowerCase().includes(query))
-                                                                );
-                                                            })
-                                                            .map(s => (
-                                                                <tr key={s.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                                                    <td style={{ padding: '0.5rem' }}>{s.name || '-'}</td>
-                                                                    <td style={{ padding: '0.5rem' }}>{s.email}</td>
-                                                                    <td style={{ padding: '0.5rem' }}>{s.section || 'N/A'}</td>
-                                                                    <td style={{ padding: '0.5rem' }}>{s.academic_semester || 'N/A'}</td>
-                                                                    <td style={{ padding: '0.5rem', display: 'flex', gap: '0.5rem' }}>
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                setStudentToEdit(s);
-                                                                                setEditForm({ section: s.section || '', academic_semester: s.academic_semester || '' });
-                                                                            }}
-                                                                            style={{ cursor: 'pointer', background: 'none', border: 'none', fontSize: '1rem' }}
-                                                                            title="Edit Details"
-                                                                        >
-                                                                            ✏️
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleDeleteEnrollment(s.id, s.name)}
-                                                                            style={{ cursor: 'pointer', background: 'none', border: 'none', fontSize: '1rem' }}
-                                                                            title="Remove from Course"
-                                                                        >
-                                                                            🗑️
-                                                                        </button>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                    </tbody>
-                                                </table>
-                                            )}
-                                        </div>
-                                    </details>
-                                </div>
-                            </div>
-                        )}
-
-                        <div style={{ marginTop: '2rem' }}>
-                            <h4 style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>Uploaded Documents</h4>
-
-                            {courseFiles.length > 0 ? (
-                                Object.entries(courseFiles.reduce((acc, file) => {
-                                    const type = file.file_type || 'other';
-                                    if (!acc[type]) acc[type] = [];
-                                    acc[type].push(file);
-                                    return acc;
-                                }, {})).map(([type, files]) => (
-                                    <div key={type} style={{ marginBottom: '1rem' }}>
-                                        {/* Folder Header */}
-                                        <div
-                                            onClick={() => setExpandedFolders(prev => ({ ...prev, [type]: !prev[type] }))}
-                                            style={{
-                                                display: 'flex', alignItems: 'center', gap: '0.5rem',
-                                                cursor: 'pointer',
-                                                background: 'rgba(255,255,255,0.05)',
-                                                padding: '1rem',
-                                                borderRadius: '8px',
-                                                border: '1px solid rgba(255,255,255,0.1)',
-                                                transition: 'background 0.2s'
-                                            }}
-                                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-                                            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                                        >
-                                            <span style={{ fontSize: '1.25rem' }}>{expandedFolders[type] ? '📂' : '📁'}</span>
-                                            <h5 style={{
-                                                textTransform: 'capitalize',
-                                                color: 'white',
-                                                margin: 0,
-                                                fontSize: '1rem',
-                                                flex: 1
-                                            }}>
-                                                {type.replace(/_/g, ' ')}
-                                                <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>({files.length})</span>
-                                            </h5>
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{expandedFolders[type] ? '▼' : '▶'}</span>
-                                        </div>
-
-                                        {/* Expanded Content */}
-                                        {expandedFolders[type] && (
-                                            <div style={{
-                                                display: 'grid', gap: '0.5rem',
-                                                marginTop: '0.5rem',
-                                                paddingLeft: '1rem',
-                                                borderLeft: '2px solid rgba(255,255,255,0.1)',
-                                                marginLeft: '1rem'
-                                            }}>
-                                                {files.map(doc => (
-                                                    <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                            <div style={{
-                                                                width: '40px', height: '40px',
-                                                                background: 'rgba(79, 70, 229, 0.1)', color: 'var(--primary)',
-                                                                borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase'
-                                                            }}>
-                                                                DOC
-                                                            </div>
-                                                            <div>
-                                                                <div style={{ fontWeight: '500' }}>{doc.filename}</div>
-                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(doc.uploaded_at).toLocaleDateString()}</div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                                            {(user.role === 'faculty') && (
-                                                                <button
-                                                                    onClick={() => handleToggleVisibility(doc.id)}
-                                                                    className="btn"
-                                                                    title={doc.is_visible ? 'Visible to Students' : 'Hidden from Students'}
-                                                                    style={{
-                                                                        padding: '0.4rem',
-                                                                        fontSize: '0.875rem',
-                                                                        background: doc.is_visible ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-                                                                        color: doc.is_visible ? '#6ee7b7' : 'var(--text-muted)',
-                                                                        aspectRatio: '1/1',
-                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                                                    }}
-                                                                >
-                                                                    {doc.is_visible ? '👁️' : '🚫'}
-                                                                </button>
-                                                            )}
-
-                                                            <button
-                                                                onClick={(e) => handleDownloadFile(e, doc.id, doc.filename)}
-                                                                className="btn"
-                                                                style={{ padding: '0.4rem 1rem', fontSize: '0.875rem', background: 'rgba(255,255,255,0.1)' }}
-                                                            >
-                                                                Download
-                                                            </button>
-
-                                                            {(user.role === 'faculty') && (
-                                                                <button
-                                                                    onClick={() => handleDeleteFile(doc.id)}
-                                                                    className="btn"
-                                                                    style={{ padding: '0.4rem 1rem', fontSize: '0.875rem', background: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5' }}
-                                                                >
-                                                                    Delete
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))
-                            ) : (
-                                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
-                                    No files uploaded yet.
-                                </div>
-                            )}
-                        </div>
-                    </div >
-                )}
-            </div >
-
-            <style>{`
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translateY(10px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-            `}</style>
-
+            {/* Edit Student Modal */}
             {
-                showValidationModal && (
-                    <div style={{
-                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                        background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center',
-                        zIndex: 1000
-                    }}>
-                        <div className="card" style={{ width: '400px', maxWidth: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
-                            <h3 style={{ marginBottom: '1rem', color: 'white' }}>Course File Checklist</h3>
-                            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-                                The following files are missing. You can force generation, but the course file will be incomplete.
-                            </p>
+                studentToEdit && (
+                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                            <h3 className="text-lg font-bold text-gray-800 mb-2">Edit Student Details</h3>
+                            <p className="text-sm text-gray-500 mb-4">{studentToEdit.email}</p>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
-                                {requiredTypes.map(type => {
-                                    const isMissing = missingFiles.includes(type);
-                                    return (
-                                        <div key={type} style={{
-                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                            padding: '0.5rem', borderRadius: '4px',
-                                            background: isMissing ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                                            border: `1px solid ${isMissing ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
-                                        }}>
-                                            <span style={{ textTransform: 'capitalize' }}>{type.replace('_', ' ')}</span>
-                                            <span>{isMissing ? '❌' : '✅'}</span>
-                                        </div>
-                                    );
-                                })}
+                            <div className="mb-4">
+                                <label className="block text-xs font-semibold text-gray-500 mb-1">Section</label>
+                                <input
+                                    className="w-full text-sm border border-gray-300 rounded p-2 focus:ring-orange-500 focus:border-orange-500"
+                                    value={editForm.section}
+                                    onChange={e => setEditForm({ ...editForm, section: e.target.value })}
+                                    placeholder="e.g. A"
+                                />
+                            </div>
+                            <div className="mb-6">
+                                <label className="block text-xs font-semibold text-gray-500 mb-1">Academic Semester</label>
+                                <input
+                                    className="w-full text-sm border border-gray-300 rounded p-2 focus:ring-orange-500 focus:border-orange-500"
+                                    value={editForm.academic_semester}
+                                    onChange={e => setEditForm({ ...editForm, academic_semester: e.target.value })}
+                                    placeholder="e.g. Fall 2025"
+                                />
                             </div>
 
-                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                            <div className="flex justify-end gap-3">
+                                <button className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded" onClick={() => setStudentToEdit(null)}>Cancel</button>
                                 <button
-                                    className="btn"
-                                    style={{ background: 'transparent' }}
-                                    onClick={() => setShowValidationModal(false)}
+                                    className="px-4 py-2 text-sm bg-orange-600 text-white rounded hover:bg-orange-700 font-medium"
+                                    onClick={async () => {
+                                        try {
+                                            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+                                            await axios.put(`${import.meta.env.VITE_API_URL}/api/enroll/student/${studentToEdit.id}`, editForm, config);
+                                            alert('Student updated');
+                                            setStudentToEdit(null);
+                                            fetchEnrolledStudents(selectedCourse.id);
+                                        } catch (e) {
+                                            console.error(e);
+                                            alert('Update failed');
+                                        }
+                                    }}
                                 >
-                                    Cancel
-                                </button>
-                                <button
-                                    className="btn btn-primary"
-                                    style={{ background: 'var(--warning)', color: 'black' }}
-                                    onClick={() => handleGenerateCourseFile(true)}
-                                    disabled={isGenerating}
-                                >
-                                    {isGenerating ? 'Generating...' : 'Force Generate'}
+                                    Save Changes
                                 </button>
                             </div>
                         </div>
                     </div>
                 )
             }
-
-
-
-            {/* Edit Student Modal */}
-            {studentToEdit && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center',
-                    zIndex: 1000
-                }}>
-                    <div className="card" style={{ width: '400px', maxWidth: '90%' }}>
-                        <h3 style={{ marginBottom: '1.5rem', color: 'white' }}>Edit Student Details</h3>
-                        <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>{studentToEdit.email}</p>
-
-                        <div style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Section</label>
-                            <input
-                                className="input-field"
-                                value={editForm.section}
-                                onChange={e => setEditForm({ ...editForm, section: e.target.value })}
-                                placeholder="e.g. A"
-                            />
-                        </div>
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Academic Semester</label>
-                            <input
-                                className="input-field"
-                                value={editForm.academic_semester}
-                                onChange={e => setEditForm({ ...editForm, academic_semester: e.target.value })}
-                                placeholder="e.g. Fall 2025"
-                            />
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                            <button className="btn" style={{ background: 'transparent' }} onClick={() => setStudentToEdit(null)}>Cancel</button>
-                            <button
-                                className="btn btn-primary"
-                                onClick={async () => {
-                                    try {
-                                        const config = { headers: { Authorization: `Bearer ${user.token}` } };
-                                        await axios.put(`${import.meta.env.VITE_API_URL}/api/enroll/student/${studentToEdit.id}`, editForm, config);
-                                        alert('Student updated');
-                                        setStudentToEdit(null);
-                                        fetchEnrolledStudents(selectedCourse.id);
-                                    } catch (e) {
-                                        console.error(e);
-                                        alert('Update failed');
-                                    }
-                                }}
-                            >
-                                Save Changes
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div >
     );
 };
