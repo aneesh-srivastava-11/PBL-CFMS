@@ -26,8 +26,16 @@ app.use(xss()); // Prevent XSS Attacks
 app.use(hpp()); // Prevent HTTP Parameter Pollution
 
 // Rate Limiting
-// Rate Limiting DISABLED (User Request)
-// app.use(limiter);
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    limit: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes).
+    standardHeaders: 'draft-7', // draft-6: `RateLimit-*` headers; draft-7: combined `RateLimit` header
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers.
+    // store: ... , // Use an external store for consistency across multiple server instances.
+});
+
+// Apply the rate limiting middleware to all requests.
+app.use(limiter);
 
 // Regular Middleware
 app.use(cors());
@@ -45,7 +53,13 @@ app.use('/api/files', require('./routes/fileRoutes'));
 app.use('/api/courses', require('./routes/courseRoutes'));
 app.use('/api/enroll', require('./routes/enrollmentRoutes'));
 app.use('/api/hod', require('./routes/hodRoutes'));
+app.use('/api/hod', require('./routes/hodRoutes'));
 app.use('/api/coordinator', require('./routes/coordinatorRoutes'));
+
+// Error Handling Middleware
+const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+app.use(notFound);
+app.use(errorHandler);
 
 // Only listen if executed directly (not when imported by Vercel)
 if (require.main === module) {
