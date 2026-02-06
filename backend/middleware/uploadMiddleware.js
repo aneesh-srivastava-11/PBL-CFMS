@@ -30,7 +30,7 @@ const upload = multer({
     storage,
     limits: {
         fileSize: 100 * 1024 * 1024, // 100MB limit
-        files: 1 // Only allow 1 file per upload
+        files: 50 // Only allow 1 file per upload
     },
     fileFilter: function (req, file, cb) {
         checkFileType(file, cb);

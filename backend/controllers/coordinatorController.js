@@ -1,4 +1,4 @@
-const { Course, User, CourseSection } = require('../models');
+const { Course, User, CourseSection, Enrollment } = require('../models');
 
 // @desc    Assign Instructor to a Section
 // @route   POST /api/coordinator/courses/:courseId/sections
@@ -6,6 +6,8 @@ const { Course, User, CourseSection } = require('../models');
 exports.assignInstructorToSection = async (req, res) => {
     const { courseId } = req.params;
     const { instructorId, section } = req.body;
+
+    console.log(`[AssignInstructor] Request received: Course=${courseId}, Section='${section}', Instructor=${instructorId}`);
 
     try {
         const course = await Course.findByPk(courseId);
@@ -23,9 +25,6 @@ exports.assignInstructorToSection = async (req, res) => {
         }
 
         // Create or Update Section Assignment
-        // Check if this section already has an instructor? Or allow multiple?
-        // Usually one instructor per section per course.
-
         let assignment = await CourseSection.findOne({
             where: { course_id: courseId, section: section }
         });
@@ -40,44 +39,51 @@ exports.assignInstructorToSection = async (req, res) => {
                 section: section
             });
         }
+        console.log(`[AssignInstructor] Section assignment saved for section '${section}'.`);
 
         // --- Auto-Enroll Students of this Section ---
-        const { Enrollment } = require('../models');
+        console.log(`[AutoEnroll] Starting process for section '${section}'...`);
 
         const targetSection = section.trim().toLowerCase();
-        console.log(`[AutoEnroll] Target Section: '${targetSection}' (Original: '${section}')`);
 
-        // 1. Find all students belonging to this section (Robust In-Memory Filter)
-        // Fetching all students to ensure case-insensitive matching works regardless of DB collation
+        // 1. Find all students
         const allStudents = await User.findAll({
             where: { role: 'student' },
-            attributes: ['id', 'section']
+            attributes: ['id', 'name', 'email', 'section']
         });
 
+        // 2. Filter in memory for case-insensitive match
         const studentsInSection = allStudents.filter(s =>
             s.section && s.section.trim().toLowerCase() === targetSection
         );
 
-        console.log(`[AutoEnroll] Found ${studentsInSection.length} matching students.`);
+        console.log(`[AutoEnroll] Found ${studentsInSection.length} matching students for section '${targetSection}'.`);
 
-        // 2. Enroll them if not already enrolled
+        // 3. Enroll them
         let enrolledCount = 0;
         for (const student of studentsInSection) {
-            const [enrollment, created] = await Enrollment.findOrCreate({
-                where: {
-                    student_id: student.id,
-                    course_id: courseId
-                },
-                defaults: {
-                    student_id: student.id,
-                    course_id: courseId,
-                    section: section.trim() // Use the clean formatted section
+            try {
+                const [enrollment, created] = await Enrollment.findOrCreate({
+                    where: {
+                        student_id: student.id,
+                        course_id: courseId
+                    },
+                    defaults: {
+                        student_id: student.id,
+                        course_id: courseId,
+                        section: section.trim()
+                    }
+                });
+                if (created) {
+                    enrolledCount++;
+                    console.log(`[AutoEnroll] Enrolled student ${student.email}`);
                 }
-            });
-            if (created) enrolledCount++;
+            } catch (err) {
+                console.error(`[AutoEnroll] Failed to enroll ${student.email}:`, err.message);
+            }
         }
 
-        console.log(`[AutoEnroll] Successfully enrolled ${enrolledCount} new students.`);
+        console.log(`[AutoEnroll] Process complete. Total new enrollments: ${enrolledCount}`);
 
         res.json({
             message: `Assigned ${instructor.name} to Section ${section}. Auto-enrolled ${enrolledCount} students (Found ${studentsInSection.length} in section).`,
@@ -86,7 +92,7 @@ exports.assignInstructorToSection = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        console.error('[AssignInstructor] Error:', error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
