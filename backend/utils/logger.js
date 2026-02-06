@@ -12,21 +12,25 @@ const logger = winston.createLogger({
         winston.format.json()
     ),
     defaultMeta: { service: 'backend' },
-    transports: [
-        new winston.transports.File({ filename: path.join(__dirname, '../logs/error.log'), level: 'error' }),
-        new winston.transports.File({ filename: path.join(__dirname, '../logs/combined.log') })
-    ]
+    transports: []
 });
 
-// If we're not in production then also log to the `console`
+// If we're not in production then log to the `console` with the format:
+// `${info.level}: ${info.message} JSON.stringify({ ...rest }) `
 if (process.env.NODE_ENV !== 'production') {
     logger.add(new winston.transports.Console({
         format: winston.format.combine(
             winston.format.colorize(),
-            winston.format.printf(({ level, message, timestamp, stack }) => {
-                return `${timestamp} ${level}: ${message} ${stack || ''}`;
-            })
+            winston.format.simple()
         )
+    }));
+    // File logs only in development/local
+    logger.add(new winston.transports.File({ filename: path.join(__dirname, '../logs/error.log'), level: 'error' }));
+    logger.add(new winston.transports.File({ filename: path.join(__dirname, '../logs/combined.log') }));
+} else {
+    // Production (Vercel): Console only (standard output captures logs)
+    logger.add(new winston.transports.Console({
+        format: winston.format.simple()
     }));
 }
 

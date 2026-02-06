@@ -4,9 +4,7 @@ const User = require('../models/userModel');
 const logger = require('../utils/logger');
 const asyncHandler = require('../middleware/asyncHandler');
 const ExcelJS = require('exceljs');
-const fs = require('fs');
-const util = require('util');
-const unlinkFile = util.promisify(fs.unlink);
+
 
 exports.enrollStudent = asyncHandler(async (req, res) => {
     const { courseId } = req.params;
@@ -209,7 +207,7 @@ exports.bulkEnrollStudents = asyncHandler(async (req, res) => {
         }
 
         const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.readFile(req.file.path);
+        await workbook.xlsx.load(req.file.buffer); // Load from buffer (Memory Storage)
         const worksheet = workbook.worksheets[0];
 
         const results = {
@@ -331,7 +329,8 @@ exports.bulkEnrollStudents = asyncHandler(async (req, res) => {
             failed_examples: results.failed
         });
 
-    } finally {
-        try { await unlinkFile(req.file.path); } catch (e) { logger.warn(`[BulkEnroll] Failed to delete temp file: ${e.message}`); }
+    } catch (error) {
+        // No explicit finally block needed for memory buffer
+        throw error; // Let AsyncHandler handle usage
     }
 });
