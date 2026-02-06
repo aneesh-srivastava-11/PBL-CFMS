@@ -22,7 +22,7 @@ const checkFileType = (file, cb) => {
     if (extname) {
         return cb(null, true);
     } else {
-        cb('Error: Only PDF, Word, PowerPoint, and Images are allowed!');
+        cb('Error: Only PDF, Word, PowerPoint, Images, and Excel files are allowed!');
     }
 };
 

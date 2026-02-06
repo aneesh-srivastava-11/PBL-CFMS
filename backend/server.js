@@ -1,6 +1,5 @@
 const express = require('express');
 require('dotenv').config();
-const path = require('path'); // Added path module
 const cors = require('cors');
 const helmet = require('helmet');
 const xss = require('xss-clean');
@@ -52,7 +51,6 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/files', require('./routes/fileRoutes'));
 app.use('/api/courses', require('./routes/courseRoutes'));
 app.use('/api/enroll', require('./routes/enrollmentRoutes'));
-app.use('/api/hod', require('./routes/hodRoutes'));
 app.use('/api/hod', require('./routes/hodRoutes'));
 app.use('/api/coordinator', require('./routes/coordinatorRoutes'));
 

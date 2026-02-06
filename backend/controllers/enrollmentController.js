@@ -2,218 +2,214 @@ const Enrollment = require('../models/enrollmentModel');
 const Course = require('../models/courseModel');
 const User = require('../models/userModel');
 const logger = require('../utils/logger');
+const asyncHandler = require('../middleware/asyncHandler');
 const ExcelJS = require('exceljs');
+const fs = require('fs');
+const util = require('util');
+const unlinkFile = util.promisify(fs.unlink);
 
-exports.enrollStudent = async (req, res) => {
+exports.enrollStudent = asyncHandler(async (req, res) => {
     const { courseId } = req.params;
     const { studentEmail } = req.body;
 
     // Validation
     if (!studentEmail) {
-        return res.status(400).json({ message: 'Student email is required' });
+        res.status(400);
+        throw new Error('Student email is required');
     }
 
-    try {
-        // 1. Verify Course ownership (Faculty only)
-        const course = await Course.findByPk(courseId);
-        if (!course) {
-            return res.status(404).json({ message: 'Course not found' });
-        }
-        if (course.faculty_id !== req.user.id && req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'Not authorized to enroll students in this course' });
-        }
+    // 1. Verify Course ownership (Faculty only)
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+        res.status(404);
+        throw new Error('Course not found');
+    }
+    if (course.faculty_id !== req.user.id && req.user.role !== 'admin') {
+        res.status(403);
+        throw new Error('Not authorized to enroll students in this course');
+    }
 
-        // 2. Find Student by Email
-        const student = await User.findOne({ where: { email: studentEmail } });
-        if (!student) {
-            return res.status(404).json({ message: 'Student not found. Ask them to login once first.' });
-        }
-        if (student.role !== 'student') {
-            return res.status(400).json({ message: 'User is not a student' });
-        }
+    // 2. Find Student by Email
+    const student = await User.findOne({ where: { email: studentEmail } });
+    if (!student) {
+        res.status(404);
+        throw new Error('Student not found. Ask them to login once first.');
+    }
+    if (student.role !== 'student') {
+        res.status(400);
+        throw new Error('User is not a student');
+    }
 
-        // 3. Create Enrollment
-        // Check if already enrolled
-        const existingEnrollment = await Enrollment.findOne({
-            where: {
-                student_id: student.id,
-                course_id: course.id
-            }
-        });
-
-        if (existingEnrollment) {
-            return res.status(400).json({ message: 'Student already enrolled' });
-        }
-
-        await Enrollment.create({
+    // 3. Create Enrollment
+    const existingEnrollment = await Enrollment.findOne({
+        where: {
             student_id: student.id,
             course_id: course.id
-        });
+        }
+    });
 
-        res.status(201).json({ message: 'Student enrolled successfully' });
-
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error' });
+    if (existingEnrollment) {
+        res.status(400);
+        throw new Error('Student already enrolled');
     }
-};
 
-exports.deleteEnrollment = async (req, res) => {
+    await Enrollment.create({
+        student_id: student.id,
+        course_id: course.id
+    });
+
+    logger.info(`[Enrollment] Student ${studentEmail} enrolled in course ${courseId}`);
+    res.status(201).json({ message: 'Student enrolled successfully' });
+});
+
+exports.deleteEnrollment = asyncHandler(async (req, res) => {
     const { courseId, studentId } = req.params;
 
-    try {
-        // 1. Verify Course ownership (Faculty only)
-        const course = await Course.findByPk(courseId);
-        if (!course) {
-            return res.status(404).json({ message: 'Course not found' });
-        }
-        if (course.faculty_id !== req.user.id && req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'Not authorized to manage enrollments for this course' });
-        }
-
-        // 2. Find and delete enrollment
-        const enrollment = await Enrollment.findOne({
-            where: {
-                student_id: studentId,
-                course_id: courseId
-            }
-        });
-
-        if (!enrollment) {
-            return res.status(404).json({ message: 'Enrollment not found' });
-        }
-
-        await enrollment.destroy();
-        res.json({ message: 'Enrollment deleted successfully' });
-
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error' });
+    // 1. Verify Course ownership (Faculty only)
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+        res.status(404);
+        throw new Error('Course not found');
     }
-};
+    if (course.faculty_id !== req.user.id && req.user.role !== 'admin') {
+        res.status(403);
+        throw new Error('Not authorized to manage enrollments for this course');
+    }
+
+    // 2. Find and delete enrollment
+    const enrollment = await Enrollment.findOne({
+        where: {
+            student_id: studentId,
+            course_id: courseId
+        }
+    });
+
+    if (!enrollment) {
+        res.status(404);
+        throw new Error('Enrollment not found');
+    }
+
+    await enrollment.destroy();
+    logger.info(`[Enrollment] Student ${studentId} removed from course ${courseId}`);
+    res.json({ message: 'Enrollment deleted successfully' });
+});
 
 
-exports.getEnrolledStudents = async (req, res) => {
+exports.getEnrolledStudents = asyncHandler(async (req, res) => {
     const { courseId } = req.params;
-    try {
-        console.log(`[DEBUG] getEnrolledStudents hit for courseId: ${courseId}`);
-        const course = await Course.findByPk(courseId, {
-            include: [{
-                model: User,
-                as: 'students',
-                attributes: ['id', 'name', 'email', 'section', 'academic_semester']
-            }]
+
+    logger.debug(`[DEBUG] getEnrolledStudents hit for courseId: ${courseId}`);
+    const course = await Course.findByPk(courseId, {
+        include: [{
+            model: User,
+            as: 'students',
+            attributes: ['id', 'name', 'email', 'section', 'academic_semester']
+        }]
+    });
+
+    if (!course) {
+        res.status(404);
+        throw new Error('Course not found');
+    }
+
+    // Check Permission & Filter Scope
+    let sectionFilter = null;
+
+    if (req.user.role === 'admin' || course.faculty_id === req.user.id || course.coordinator_id === req.user.id) {
+        // Full Access: See all students
+    } else {
+        // Check if Section Instructor
+        const CourseSection = require('../models/courseSectionModel');
+        const assignment = await CourseSection.findOne({
+            where: { course_id: courseId, instructor_id: req.user.id }
         });
 
-        if (!course) {
-            return res.status(404).json({ message: 'Course not found' });
-        }
-
-        // Check Permission & Filter Scope
-        let sectionFilter = null;
-
-        if (req.user.role === 'admin' || course.faculty_id === req.user.id || course.coordinator_id === req.user.id) {
-            // Full Access: See all students
+        if (assignment) {
+            // Restricted Access: See only own section
+            sectionFilter = assignment.section;
         } else {
-            // Check if Section Instructor
-            const CourseSection = require('../models/courseSectionModel');
-            const assignment = await CourseSection.findOne({
-                where: { course_id: courseId, instructor_id: req.user.id }
-            });
-
-            if (assignment) {
-                // Restricted Access: See only own section
-                sectionFilter = assignment.section;
-            } else {
-                return res.status(403).json({ message: 'Not authorized to view students for this course' });
-            }
+            res.status(403);
+            throw new Error('Not authorized to view students for this course');
         }
-
-        // Filter students in memory (simpler than complex include where) or use DB filter if possible
-        let students = course.students;
-        if (sectionFilter) {
-            students = students.filter(s => s.section === sectionFilter);
-        }
-
-        console.log(`[DEBUG] Found ${students.length} students for course ${courseId} (Filter: ${sectionFilter || 'All'})`);
-        res.json(students);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error' });
     }
-};
 
-exports.downloadTemplate = async (req, res) => {
-    try {
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('Enrollment Template');
-
-        worksheet.columns = [
-            { header: 'Email', key: 'email', width: 30 },
-            { header: 'Section', key: 'section', width: 15 },
-            { header: 'Semester', key: 'semester', width: 15 }
-        ];
-
-        // Add example row
-        worksheet.addRow({ email: 'student@example.com', section: 'A', semester: 'Fall 2025' });
-
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=Enrollment_Template.xlsx');
-
-        await workbook.xlsx.write(res);
-        res.end();
-    } catch (error) {
-        console.error('Error generating template', error);
-        res.status(500).json({ message: 'Error generating template' });
+    // Filter students in memory (simpler than complex include where) or use DB filter if possible
+    let students = course.students;
+    if (sectionFilter) {
+        students = students.filter(s => s.section === sectionFilter);
     }
-};
 
-exports.updateStudentDetails = async (req, res) => {
+    logger.debug(`[DEBUG] Found ${students.length} students for course ${courseId} (Filter: ${sectionFilter || 'All'})`);
+    res.json(students);
+});
+
+exports.downloadTemplate = asyncHandler(async (req, res) => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Enrollment Template');
+
+    worksheet.columns = [
+        { header: 'Email', key: 'email', width: 30 },
+        { header: 'Section', key: 'section', width: 15 },
+        { header: 'Semester', key: 'semester', width: 15 }
+    ];
+
+    // Add example row
+    worksheet.addRow({ email: 'student@example.com', section: 'A', semester: 'Fall 2025' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=Enrollment_Template.xlsx');
+
+    await workbook.xlsx.write(res);
+    res.end();
+});
+
+exports.updateStudentDetails = asyncHandler(async (req, res) => {
     const { studentId } = req.params;
     const { section, academic_semester } = req.body;
 
-    try {
-        const student = await User.findByPk(studentId);
-        if (!student) {
-            return res.status(404).json({ message: 'Student not found' });
-        }
-
-        // Only Coordinator or Admin can update
-        // (Assuming authMiddleware protects usage, but double check role/coordinator status logic if needed)
-        // Since this is coordinate route, we assume protection is in place or handled by frontend visibility + checks.
-        // Ideally should check course context or global coordinator permission.
-        // For now, allow simple update.
-
-        if (section) student.section = section;
-        if (academic_semester) student.academic_semester = academic_semester;
-
-        await student.save();
-
-        res.json({ message: 'Student details updated', student });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error updating student' });
+    const student = await User.findByPk(studentId);
+    if (!student) {
+        res.status(404);
+        throw new Error('Student not found');
     }
-};
 
-exports.bulkEnrollStudents = async (req, res) => {
+    // Only Coordinator or Admin can update
+    // (Assuming authMiddleware protects usage, but double check role/coordinator status logic if needed)
+    // Since this is coordinate route, we assume protection is in place or handled by frontend visibility + checks.
+    // Ideally should check course context or global coordinator permission.
+    // For now, allow simple update.
+
+    if (section) student.section = section;
+    if (academic_semester) student.academic_semester = academic_semester;
+
+    await student.save();
+    logger.info(`[Student] Details updated for ${student.email}`);
+    res.json({ message: 'Student details updated', student });
+});
+
+exports.bulkEnrollStudents = asyncHandler(async (req, res) => {
     const { courseId } = req.params;
     const { preview, force } = req.query; // ?preview=true or ?force=true (though logic handles force implicitly by processing valid)
 
     if (!req.file) {
-        return res.status(400).json({ message: 'No file uploaded' });
+        res.status(400);
+        throw new Error('No file uploaded');
     }
 
     try {
         const course = await Course.findByPk(courseId);
-        if (!course) return res.status(404).json({ message: 'Course not found' });
+        if (!course) {
+            res.status(404);
+            throw new Error('Course not found');
+        }
 
         if (course.faculty_id !== req.user.id && req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'Not authorized' });
+            res.status(403);
+            throw new Error('Not authorized');
         }
 
         const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(req.file.buffer);
+        await workbook.xlsx.readFile(req.file.path);
         const worksheet = workbook.worksheets[0];
 
         const results = {
@@ -233,7 +229,8 @@ exports.bulkEnrollStudents = async (req, res) => {
         });
 
         if (emailCol === 0) {
-            return res.status(400).json({ message: 'Invalid Template. "Email" column not found.' });
+            res.status(400);
+            throw new Error('Invalid Template. "Email" column not found.');
         }
 
         // 2. Process Rows
@@ -292,7 +289,7 @@ exports.bulkEnrollStudents = async (req, res) => {
         // 3. Response handling
         if (preview === 'true') {
             // Return analysis only
-            return res.json({
+            res.json({
                 message: 'Preview generated',
                 stats: {
                     total_rows: results.success.length + results.failed.length,
@@ -301,6 +298,7 @@ exports.bulkEnrollStudents = async (req, res) => {
                 },
                 results
             });
+            return; // Ensure we stop here
         }
 
         // 4. Execution (Save to DB)
@@ -325,14 +323,15 @@ exports.bulkEnrollStudents = async (req, res) => {
             enrolled.push(validItem.email);
         }
 
+        logger.info(`[BulkEnroll] Processed. Enrolled: ${enrolled.length}, Failed: ${results.failed.length}`);
+
         res.json({
             message: 'Bulk enrollment processed',
             enrolled_count: enrolled.length,
             failed_examples: results.failed
         });
 
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error processing file' });
+    } finally {
+        try { await unlinkFile(req.file.path); } catch (e) { logger.warn(`[BulkEnroll] Failed to delete temp file: ${e.message}`); }
     }
-};
+});
