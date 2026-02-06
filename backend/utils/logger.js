@@ -17,18 +17,19 @@ const logger = winston.createLogger({
 
 // If we're not in production then log to the `console` with the format:
 // `${info.level}: ${info.message} JSON.stringify({ ...rest }) `
-if (process.env.NODE_ENV !== 'production') {
+// Safe by default: Console only
+if (process.env.NODE_ENV === 'development') {
     logger.add(new winston.transports.Console({
         format: winston.format.combine(
             winston.format.colorize(),
             winston.format.simple()
         )
     }));
-    // File logs only in development/local
+    // File logs ONLY in development
     logger.add(new winston.transports.File({ filename: path.join(__dirname, '../logs/error.log'), level: 'error' }));
     logger.add(new winston.transports.File({ filename: path.join(__dirname, '../logs/combined.log') }));
 } else {
-    // Production (Vercel): Console only (standard output captures logs)
+    // Production / Vercel / Undefined: Console only
     logger.add(new winston.transports.Console({
         format: winston.format.simple()
     }));

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { enrollStudent, deleteEnrollment, getEnrolledStudents, bulkEnrollStudents, downloadTemplate, updateStudentDetails } = require('../controllers/enrollmentController');
+const { protect } = require('../middleware/authMiddleware');
 const excelUpload = require('../middleware/excelUploadMiddleware');
 
 router.get('/template', protect, downloadTemplate);
