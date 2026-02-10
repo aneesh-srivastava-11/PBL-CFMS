@@ -1,4 +1,5 @@
 const { CourseSection, Enrollment, Course } = require('../models');
+const sequelize = require('../config/db');
 const logger = require('./logger');
 
 /**

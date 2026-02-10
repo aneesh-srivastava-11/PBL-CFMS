@@ -5,6 +5,8 @@ import Dashboard from './pages/Dashboard';
 
 import UserList from './pages/UserList';
 
+import Profile from './pages/Profile';
+
 function App() {
   return (
     <Router>
@@ -12,6 +14,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<Dashboard />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/hod/faculties" element={<UserList type="faculty" />} />
           <Route path="/hod/students" element={<UserList type="student" />} />
           <Route path="*" element={<Navigate to="/" />} />
