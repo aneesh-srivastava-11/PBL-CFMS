@@ -5,6 +5,7 @@ const ExcelJS = require('exceljs');
 const fs = require('fs');
 const util = require('util');
 const unlinkFile = util.promisify(fs.unlink);
+const { autoEnrollStudentBySection } = require('../utils/autoEnrollment');
 
 // @desc    Create a new course
 // @route   POST /api/hod/courses
@@ -185,9 +186,24 @@ exports.bulkAddStudents = asyncHandler(async (req, res) => {
             return;
         }
 
-        await User.bulkCreate(rows);
+
+        const createdUsers = await User.bulkCreate(rows);
         logger.info(`[HOD] Bulk added ${rows.length} students`);
-        res.status(201).json({ message: `Added ${rows.length} students` });
+
+        // Auto-enroll all students in courses matching their sections
+        let totalEnrolled = 0;
+        for (const student of createdUsers) {
+            if (student.section) {
+                const result = await autoEnrollStudentBySection(student.id, student.section);
+                totalEnrolled += result.enrolled;
+            }
+        }
+
+        res.status(201).json({
+            message: `Added ${rows.length} students`,
+            auto_enrolled_total: totalEnrolled
+        });
+
 
     } finally {
         try { await unlinkFile(req.file.path); } catch (e) { logger.warn(`[BulkAdd] Failed to delete temp file: ${e.message}`); }
@@ -218,6 +234,9 @@ exports.updateUser = asyncHandler(async (req, res) => {
         throw new Error('User not found');
     }
 
+    const sectionChanged = section !== undefined && section !== user.section;
+    const oldSection = user.section;
+
     if (name) user.name = name;
     if (section !== undefined) user.section = section; // Allow clearing
     if (academic_semester !== undefined) user.academic_semester = academic_semester;
@@ -225,5 +244,20 @@ exports.updateUser = asyncHandler(async (req, res) => {
 
     await user.save();
     logger.info(`[HOD] User updated: ${user.email}`);
-    res.json({ message: 'User updated successfully', user });
+
+    // Auto-enroll if section was changed for a student
+    let autoEnrollResult = null;
+    if (sectionChanged && user.role === 'student' && user.section) {
+        logger.info(`[HOD] Section changed for student ${user.email} from '${oldSection}' to '${user.section}'. Triggering auto-enrollment...`);
+        autoEnrollResult = await autoEnrollStudentBySection(user.id, user.section);
+    }
+
+    res.json({
+        message: 'User updated successfully',
+        user,
+        auto_enrollment: autoEnrollResult ? {
+            enrolled_courses: autoEnrollResult.enrolled,
+            courses: autoEnrollResult.courses
+        } : null
+    });
 });

@@ -50,6 +50,17 @@ exports.assignInstructorToSection = asyncHandler(async (req, res) => {
     // --- Auto-Enroll Students of this Section ---
     logger.info(`[AutoEnroll] Starting process for section '${section}'...`);
 
+    // Validate section input
+    if (!section || typeof section !== 'string' || !section.trim()) {
+        logger.warn(`[AutoEnroll] Invalid section value provided: '${section}'. Skipping auto-enrollment.`);
+        res.json({
+            message: `Assigned ${instructor.name} to Section ${section}. Auto-enrollment skipped (invalid section).`,
+            assignment,
+            auto_enrolled_count: 0
+        });
+        return;
+    }
+
     const targetSection = section.trim().toLowerCase();
 
     // 1. Find all students
@@ -58,15 +69,35 @@ exports.assignInstructorToSection = asyncHandler(async (req, res) => {
         attributes: ['id', 'name', 'email', 'section']
     });
 
-    // 2. Filter in memory for case-insensitive match
-    const studentsInSection = allStudents.filter(s =>
-        s.section && s.section.trim().toLowerCase() === targetSection
-    );
+    logger.debug(`[AutoEnroll] Total students in database: ${allStudents.length}`);
+
+    // 2. Filter in memory for case-insensitive match with NULL-safe checks
+    const studentsInSection = allStudents.filter(s => {
+        // Defensive NULL/empty check
+        if (!s.section || typeof s.section !== 'string') {
+            return false;
+        }
+
+        const studentSection = s.section.trim();
+        if (!studentSection) {
+            return false; // Skip empty or whitespace-only sections
+        }
+
+        const match = studentSection.toLowerCase() === targetSection;
+
+        if (match) {
+            logger.debug(`[AutoEnroll] Match found: ${s.email} (section: '${s.section}')`);
+        }
+
+        return match;
+    });
 
     logger.info(`[AutoEnroll] Found ${studentsInSection.length} matching students for section '${targetSection}'.`);
 
     // 3. Enroll them
     let enrolledCount = 0;
+    let skippedCount = 0;
+
     for (const student of studentsInSection) {
         try {
             const [enrollment, created] = await Enrollment.findOrCreate({
@@ -82,19 +113,24 @@ exports.assignInstructorToSection = asyncHandler(async (req, res) => {
             });
             if (created) {
                 enrolledCount++;
-                logger.debug(`[AutoEnroll] Enrolled student ${student.email}`);
+                logger.debug(`[AutoEnroll] ✓ Enrolled student ${student.email}`);
+            } else {
+                skippedCount++;
+                logger.debug(`[AutoEnroll] ○ Student ${student.email} already enrolled`);
             }
         } catch (err) {
-            logger.error(`[AutoEnroll] Failed to enroll ${student.email}: ${err.message}`);
+            logger.error(`[AutoEnroll] ✗ Failed to enroll ${student.email}: ${err.message}`);
         }
     }
 
-    logger.info(`[AutoEnroll] Process complete. Total new enrollments: ${enrolledCount}`);
+    logger.info(`[AutoEnroll] Process complete. New enrollments: ${enrolledCount}, Already enrolled: ${skippedCount}`);
 
     res.json({
-        message: `Assigned ${instructor.name} to Section ${section}. Auto-enrolled ${enrolledCount} students (Found ${studentsInSection.length} in section).`,
+        message: `Assigned ${instructor.name} to Section ${section}. Auto-enrolled ${enrolledCount} new students (${studentsInSection.length} total in section, ${skippedCount} already enrolled).`,
         assignment,
-        auto_enrolled_count: enrolledCount
+        auto_enrolled_count: enrolledCount,
+        students_found: studentsInSection.length,
+        already_enrolled: skippedCount
     });
 });
 
