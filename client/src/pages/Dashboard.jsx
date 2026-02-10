@@ -4,7 +4,10 @@ import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 import Sidebar from '../components/Sidebar';
 import TopHeader from '../components/TopHeader';
-import { Book, User as UserIcon, Folder as FolderIcon, FolderOpen, ChevronDown, Download, Trash2, Eye, EyeOff, XCircle, CheckCircle } from "lucide-react";
+import AssignmentSubmissions from '../components/AssignmentSubmissions';
+import GradingPanel from '../components/GradingPanel';
+import ExemplarPanel from '../components/ExemplarPanel';
+import { Book, User as UserIcon, Folder as FolderIcon, FolderOpen, ChevronDown, Download, Trash2, Eye, EyeOff, XCircle, CheckCircle, Upload, Award, Clock, FileText, Edit3, ToggleLeft, ToggleRight } from "lucide-react";
 
 const Dashboard = () => {
     const { user, logout, loading, updateUser } = useContext(AuthContext);
@@ -35,6 +38,17 @@ const Dashboard = () => {
     const [pendingBulkFile, setPendingBulkFile] = useState(null);
     const [studentToEdit, setStudentToEdit] = useState(null);
     const [editForm, setEditForm] = useState({ section: '', academic_semester: '' });
+
+    // Submission State
+    const [mySubmissions, setMySubmissions] = useState([]);
+    const [submissionFile, setSubmissionFile] = useState(null);
+    const [submissionUploading, setSubmissionUploading] = useState(false);
+    const [assignmentSubmissions, setAssignmentSubmissions] = useState([]);
+    const [selectedAssignment, setSelectedAssignment] = useState(null);
+    const [gradingForm, setGradingForm] = useState({ submissionId: null, marks: '' });
+    const [exemplarForm, setExemplarForm] = useState({ submissionId: null, type: '' });
+    const [submissionControlForm, setSubmissionControlForm] = useState({ enabled: false, deadline: '' });
+    const [exemplarSubmissions, setExemplarSubmissions] = useState([]);
 
     // HOD & Coordinator State
     const [faculties, setFaculties] = useState([]);
@@ -88,6 +102,17 @@ const Dashboard = () => {
         } else {
             setCourseFiles([]);
             setEnrolledStudents([]);
+        }
+    }, [selectedCourse, user]);
+
+    // 3. Fetch submissions for students/coordinators
+    useEffect(() => {
+        if (!user) return;
+        if (user.role === 'student') {
+            fetchMySubmissions();
+        }
+        if (selectedCourse && (selectedCourse.coordinator_id === user.id || user.role === 'admin' || user.role === 'hod')) {
+            fetchExemplarSubmissions(selectedCourse.id);
         }
     }, [selectedCourse, user]);
 
@@ -432,6 +457,166 @@ const Dashboard = () => {
             }
         } finally {
             setIsGenerating(false);
+        }
+    };
+
+    // === SUBMISSION API FUNCTIONS ===
+
+    // Student: Fetch my submissions
+    const fetchMySubmissions = async () => {
+        if (user.role !== 'student') return;
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get(`${apiUrl}/api/submissions/my`, config);
+            setMySubmissions(data);
+        } catch (error) {
+            console.error('Failed to fetch submissions', error);
+        }
+    };
+
+    // Student: Upload submission
+    const handleUploadSubmission = async (e, assignmentId) => {
+        e.preventDefault();
+        if (!submissionFile) {
+            alert('Please select a file');
+            return;
+        }
+        setSubmissionUploading(true);
+        const formData = new FormData();
+        formData.append('file', submissionFile);
+        try {
+            const config = {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    Authorization: `Bearer ${user.token}`
+                }
+            };
+            await axios.post(`${apiUrl}/api/submissions/${assignmentId}`, formData, config);
+            alert('Submission uploaded successfully!');
+            setSubmissionFile(null);
+            fetchMySubmissions();
+            fetchCourseFiles(selectedCourse.id);
+        } catch (error) {
+            console.error('Submission failed', error);
+            alert(error.response?.data?.message || 'Submission failed');
+        } finally {
+            setSubmissionUploading(false);
+        }
+    };
+
+    // Instructor: Fetch submissions for an assignment
+    const fetchAssignmentSubmissions = async (assignmentId) => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get(`${apiUrl}/api/submissions/assignment/${assignmentId}`, config);
+            setAssignmentSubmissions(data);
+            setSelectedAssignment(assignmentId);
+        } catch (error) {
+            console.error('Failed to fetch submissions', error);
+        }
+    };
+
+    // Instructor: Grade submission
+    const handleGradeSubmission = async (e) => {
+        e.preventDefault();
+        if (!gradingForm.submissionId || gradingForm.marks === '') {
+            alert('Please enter marks');
+            return;
+        }
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(`${apiUrl}/api/submissions/${gradingForm.submissionId}/grade`,
+                { marks: gradingForm.marks },
+                config
+            );
+            alert('Submission graded successfully');
+            setGradingForm({ submissionId: null, marks: '' });
+            fetchAssignmentSubmissions(selectedAssignment);
+        } catch (error) {
+            console.error('Grading failed', error);
+            alert('Failed to grade submission');
+        }
+    };
+
+    // Instructor: Mark as exemplar
+    const handleMarkExemplar = async (submissionId, type) => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(`${apiUrl}/api/submissions/${submissionId}/exemplar`,
+                { exemplar_type: type },
+                config
+            );
+            alert(`Marked as ${type}`);
+            fetchAssignmentSubmissions(selectedAssignment);
+        } catch (error) {
+            console.error('Exemplar marking failed', error);
+            alert('Failed to mark exemplar');
+        }
+    };
+
+    // Faculty: Toggle submission status
+    const handleToggleSubmissions = async (fileId, enabled, deadline) => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(`${apiUrl}/api/files/${fileId}/toggle-submissions`,
+                { enabled, deadline: deadline || null },
+                config
+            );
+            alert(`Submissions ${enabled ? 'enabled' : 'disabled'}`);
+            fetchCourseFiles(selectedCourse.id);
+        } catch (error) {
+            console.error('Toggle failed', error);
+            alert('Failed to toggle submissions');
+        }
+    };
+
+    // Coordinator: Fetch exemplar submissions
+    const fetchExemplarSubmissions = async (courseId) => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get(`${apiUrl}/api/submissions/course/${courseId}/exemplars`, config);
+            setExemplarSubmissions(data);
+        } catch (error) {
+            console.error('Failed to fetch exemplars', error);
+        }
+    };
+
+    // Download submission
+    const handleDownloadSubmission = async (submissionId, filename) => {
+        try {
+            const config = {
+                headers: { Authorization: `Bearer ${user.token}` },
+                responseType: 'blob'
+            };
+            const response = await axios.get(`${apiUrl}/api/submissions/${submissionId}/download`, config);
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.error('Download failed', error);
+        }
+    };
+
+    // Coordinator: Toggle featured exemplar (double-star for course file)
+    const handleToggleFeatured = async (submissionId, isFeatured) => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(
+                `${apiUrl}/api/submissions/${submissionId}/featured`,
+                { is_featured: isFeatured },
+                config
+            );
+            // Refresh exemplar list
+            if (selectedCourse) {
+                fetchExemplarSubmissions(selectedCourse.id);
+            }
+        } catch (error) {
+            console.error('Failed to toggle featured', error);
+            alert('Failed to update featured status');
         }
     };
 
@@ -875,6 +1060,51 @@ const Dashboard = () => {
                                                 </div>
                                             )}
                                         </div>
+
+                                        {/* SUBMISSION PANELS */}
+                                        {selectedCourse && (
+                                            <div className="space-y-6 mt-6">
+                                                {/* Student View: Assignment Submissions */}
+                                                {user.role === 'student' && (
+                                                    <AssignmentSubmissions
+                                                        assignments={courseFiles}
+                                                        mySubmissions={mySubmissions}
+                                                        submissionFile={submissionFile}
+                                                        setSubmissionFile={setSubmissionFile}
+                                                        submissionUploading={submissionUploading}
+                                                        onUploadSubmission={handleUploadSubmission}
+                                                        onDownloadSubmission={handleDownloadSubmission}
+                                                    />
+                                                )}
+
+                                                {/* Instructor View: Grading Panel (only if they teach a section) */}
+                                                {user.role === 'faculty' && sections.some(s => s.instructor_id === user.id) && (
+                                                    <GradingPanel
+                                                        assignments={courseFiles}
+                                                        selectedAssignment={selectedAssignment}
+                                                        assignmentSubmissions={assignmentSubmissions}
+                                                        onFetchSubmissions={fetchAssignmentSubmissions}
+                                                        onGradeSubmission={(form) => {
+                                                            setGradingForm(form);
+                                                            const e = { preventDefault: () => { } };
+                                                            handleGradeSubmission(e);
+                                                        }}
+                                                        onMarkExemplar={handleMarkExemplar}
+                                                        onToggleSubmissions={handleToggleSubmissions}
+                                                        onDownloadSubmission={handleDownloadSubmission}
+                                                    />
+                                                )}
+
+                                                {/* Coordinator/HOD View: Exemplar Submissions (in addition to grading panel if they teach) */}
+                                                {(selectedCourse.coordinator_id === user.id || user.role === 'hod' || user.role === 'admin') && (
+                                                    <ExemplarPanel
+                                                        exemplarSubmissions={exemplarSubmissions}
+                                                        onDownloadSubmission={handleDownloadSubmission}
+                                                        onToggleFeatured={handleToggleFeatured}
+                                                    />
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
