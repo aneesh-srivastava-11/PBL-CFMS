@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
 const {
     uploadSubmission,
     getMySubmissions,
@@ -12,9 +11,8 @@ const {
     toggleFeaturedExemplar
 } = require('../controllers/submissionController');
 const { protect } = require('../middleware/authMiddleware');
+const upload = require('../middleware/uploadMiddleware'); // Use centralized upload config
 
-// Configure multer for file uploads
-const upload = multer({ dest: 'uploads/' });
 
 // Student routes
 router.post('/:fileId', protect, upload.single('file'), uploadSubmission);
