@@ -87,7 +87,7 @@ exports.bulkAddFaculties = asyncHandler(async (req, res) => {
 
         const rows = [];
         const emails = new Set();
-        const errors = [];
+        const skipped = [];
 
         worksheet.eachRow((row, rowNumber) => {
             if (rowNumber === 1) return;
@@ -96,35 +96,61 @@ exports.bulkAddFaculties = asyncHandler(async (req, res) => {
             const phone = row.getCell(3).text ? row.getCell(3).text.trim() : '';
 
             if (!name || !email || !phone) {
-                errors.push(`Row ${rowNumber}: Missing fields from ${rowNumber} name:${name}`);
+                skipped.push({ row: rowNumber, email, reason: 'Missing required fields' });
+                return;
+            }
+            // Domain validation for faculty
+            if (!email.toLowerCase().endsWith('@jaipur.manipal.edu')) {
+                skipped.push({ row: rowNumber, email, reason: 'Invalid domain (must be @jaipur.manipal.edu)' });
                 return;
             }
             if (emails.has(email)) {
-                errors.push(`Row ${rowNumber}: Duplicate email`);
+                skipped.push({ row: rowNumber, email, reason: 'Duplicate email in file' });
                 return;
             }
             emails.add(email);
             rows.push({ name, email, phone_number: phone, role: 'faculty', password: 'password123' });
         });
 
-        if (errors.length) {
-            res.status(400).json({ message: 'Validation Failed', errors });
-            return;
-        }
         if (!rows.length) {
-            res.status(400);
-            throw new Error('File Empty');
-        }
-
-        const existing = await User.findAll({ where: { email: Array.from(emails) } });
-        if (existing.length) {
-            res.status(400).json({ message: 'Duplicates in DB', errors: existing.map(u => u.email) });
+            res.status(400).json({
+                message: 'No valid faculties to add',
+                skipped,
+                total_rows: skipped.length,
+                valid_rows: 0
+            });
             return;
         }
 
-        await User.bulkCreate(rows);
-        logger.info(`[HOD] Bulk added ${rows.length} faculties`);
-        res.status(201).json({ message: `Added ${rows.length} faculties` });
+        // Filter out emails that already exist in DB
+        const existing = await User.findAll({ where: { email: Array.from(emails) } });
+        const existingEmails = new Set(existing.map(u => u.email));
+
+        const finalRows = rows.filter(row => {
+            if (existingEmails.has(row.email)) {
+                skipped.push({ email: row.email, reason: 'Already exists in database' });
+                return false;
+            }
+            return true;
+        });
+
+        if (finalRows.length === 0) {
+            res.status(400).json({
+                message: 'No new faculties to add (all skipped)',
+                skipped,
+                added: 0
+            });
+            return;
+        }
+
+        await User.bulkCreate(finalRows);
+        logger.info(`[HOD] Bulk added ${finalRows.length} faculties (skipped ${skipped.length})`);
+        res.status(201).json({
+            message: `Successfully added ${finalRows.length} faculties`,
+            added: finalRows.length,
+            skipped: skipped.length,
+            skipped_details: skipped.length > 0 ? skipped : undefined
+        });
 
     } finally {
         // cleanup
@@ -150,7 +176,7 @@ exports.bulkAddStudents = asyncHandler(async (req, res) => {
 
         const rows = [];
         const emails = new Set();
-        const errors = [];
+        const skipped = [];
 
         worksheet.eachRow((row, rowNumber) => {
             if (rowNumber === 1) return;
@@ -160,35 +186,55 @@ exports.bulkAddStudents = asyncHandler(async (req, res) => {
             const sec = row.getCell(4).text ? row.getCell(4).text.trim() : '';
 
             if (!name || !email || !sem || !sec) {
-                errors.push(`Row ${rowNumber}: Missing fields`);
+                skipped.push({ row: rowNumber, email, reason: 'Missing required fields' });
+                return;
+            }
+            // Domain validation for students
+            if (!email.toLowerCase().endsWith('@muj.manipal.edu')) {
+                skipped.push({ row: rowNumber, email, reason: 'Invalid domain (must be @muj.manipal.edu)' });
                 return;
             }
             if (emails.has(email)) {
-                errors.push(`Row ${rowNumber}: Duplicate email`);
+                skipped.push({ row: rowNumber, email, reason: 'Duplicate email in file' });
                 return;
             }
             emails.add(email);
             rows.push({ name, email, role: 'student', academic_semester: sem, section: sec, password: 'password123' });
         });
 
-        if (errors.length) {
-            res.status(400).json({ message: 'Validation Failed', errors });
-            return;
-        }
         if (!rows.length) {
-            res.status(400);
-            throw new Error('File Empty');
-        }
-
-        const existing = await User.findAll({ where: { email: Array.from(emails) } });
-        if (existing.length) {
-            res.status(400).json({ message: 'Duplicates in DB', errors: existing.map(u => u.email) });
+            res.status(400).json({
+                message: 'No valid students to add',
+                skipped,
+                total_rows: skipped.length,
+                valid_rows: 0
+            });
             return;
         }
 
+        // Filter out emails that already exist in DB
+        const existing = await User.findAll({ where: { email: Array.from(emails) } });
+        const existingEmails = new Set(existing.map(u => u.email));
 
-        const createdUsers = await User.bulkCreate(rows);
-        logger.info(`[HOD] Bulk added ${rows.length} students`);
+        const finalRows = rows.filter(row => {
+            if (existingEmails.has(row.email)) {
+                skipped.push({ email: row.email, reason: 'Already exists in database' });
+                return false;
+            }
+            return true;
+        });
+
+        if (finalRows.length === 0) {
+            res.status(400).json({
+                message: 'No new students to add (all skipped)',
+                skipped,
+                added: 0
+            });
+            return;
+        }
+
+        const createdUsers = await User.bulkCreate(finalRows);
+        logger.info(`[HOD] Bulk added ${finalRows.length} students (skipped ${skipped.length})`);
 
         // Auto-enroll all students in courses matching their sections
         let totalEnrolled = 0;
@@ -200,8 +246,11 @@ exports.bulkAddStudents = asyncHandler(async (req, res) => {
         }
 
         res.status(201).json({
-            message: `Added ${rows.length} students`,
-            auto_enrolled_total: totalEnrolled
+            message: `Successfully added ${finalRows.length} students`,
+            added: finalRows.length,
+            skipped: skipped.length,
+            auto_enrolled_total: totalEnrolled,
+            skipped_details: skipped.length > 0 ? skipped : undefined
         });
 
 
