@@ -52,7 +52,24 @@ exports.getCourses = asyncHandler(async (req, res) => {
             if (sa.course) courseMap.set(sa.course.id, sa.course);
         });
 
-        courses = Array.from(courseMap.values());
+        // 4. Enrich with section info if faculty teaches a section
+        const enrichedCourses = Array.from(courseMap.values()).map(course => {
+            const cJson = course.toJSON();
+            // Find if this faculty teaches a section in this course
+            const mySection = sectionAssignments.find(sa => sa.course_id === course.id);
+            if (mySection) {
+                cJson.my_section = mySection.section;
+                cJson.my_instructor = {
+                    id: req.user.id,
+                    name: req.user.name,
+                    email: req.user.email,
+                    phone_number: req.user.phone_number
+                };
+            }
+            return cJson;
+        });
+
+        courses = enrichedCourses;
     } else if (req.user.role === 'student') {
         const Enrollment = require('../models/enrollmentModel');
         const CourseSection = require('../models/courseSectionModel');

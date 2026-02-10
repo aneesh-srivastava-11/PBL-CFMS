@@ -8,7 +8,8 @@ const {
     gradeSubmission,
     markExemplar,
     getExemplarSubmissions,
-    downloadSubmission
+    downloadSubmission,
+    toggleFeaturedExemplar
 } = require('../controllers/submissionController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -26,6 +27,7 @@ router.put('/:id/exemplar', protect, markExemplar);
 
 // Coordinator routes
 router.get('/course/:courseId/exemplars', protect, getExemplarSubmissions);
+router.put('/:id/featured', protect, toggleFeaturedExemplar); // Coordinator double-star
 
 // Download route
 router.get('/:id/download', protect, downloadSubmission);

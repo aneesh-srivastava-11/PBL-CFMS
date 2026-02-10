@@ -97,20 +97,20 @@ exports.getFilesByCourseHandler = async (req, res) => {
             // See ALL files (Global + All Sections)
             // No redundant status update
         }
-        // 2. Instructor -> See Global + Their Section
+        // 2. Instructor -> See assignments from their section + global assignments
         else if (userRole === 'faculty') {
             const assignment = await CourseSection.findOne({
                 where: { course_id: courseId, instructor_id: userId }
             });
             if (assignment) {
-                // Determine logic: Can instructor see other sections? Usually no.
-                // Visible: Section IS NULL OR Section == assignment.section
+                // Instructors see:
+                // - All files (any type) that are global (section: null) OR for their specific section
                 const { Op } = require('sequelize');
                 whereClause = {
                     course_id: courseId,
                     [Op.or]: [
-                        { section: null },
-                        { section: assignment.section }
+                        { section: null }, // Global files (visible to all)
+                        { section: assignment.section } // Files specific to their section
                     ]
                 };
             } else {

@@ -64,6 +64,11 @@ const StudentSubmission = sequelize.define('StudentSubmission', {
         allowNull: true,
         comment: 'Mark submission as exemplar (best/average/poor)'
     },
+    is_featured_exemplar: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        comment: 'Coordinator can mark for course file PDF (double star)'
+    },
     submitted_at: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW

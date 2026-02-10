@@ -216,11 +216,11 @@ exports.gradeSubmission = async (req, res) => {
 
         // Check authorization
         const course = await Course.findByPk(submission.course_id);
-        const isCoordinator = (course.coordinator_id === req.user.id);
         const isAdmin = (req.user.role === 'admin' || req.user.role === 'hod');
 
-        let canGrade = isAdmin || isCoordinator;
+        let canGrade = isAdmin; // Only admin/HOD have auto-approval
 
+        // Faculty (including coordinators) must teach the student's section to grade
         if (!canGrade && req.user.role === 'faculty') {
             // Check if instructor is assigned to student's section
             const enrollment = await Enrollment.findOne({
@@ -277,13 +277,35 @@ exports.markExemplar = async (req, res) => {
             return res.status(404).json({ message: 'Submission not found' });
         }
 
-        // Check authorization (similar to grading)
+        // Check authorization (must teach the student's section to mark exemplar)
         const course = await Course.findByPk(submission.course_id);
-        const isCoordinator = (course.coordinator_id === req.user.id);
         const isAdmin = (req.user.role === 'admin' || req.user.role === 'hod');
 
-        if (!isAdmin && !isCoordinator && req.user.role !== 'faculty') {
-            return res.status(403).json({ message: 'Not authorized' });
+        let canMark = isAdmin; // Only admin/HOD have auto-approval
+
+        // Faculty (including coordinators) must teach the student's section to mark exemplar
+        if (!canMark && req.user.role === 'faculty') {
+            const enrollment = await Enrollment.findOne({
+                where: {
+                    student_id: submission.student_id,
+                    course_id: submission.course_id
+                }
+            });
+
+            if (enrollment) {
+                const assignment = await CourseSection.findOne({
+                    where: {
+                        course_id: submission.course_id,
+                        instructor_id: req.user.id,
+                        section: enrollment.section
+                    }
+                });
+                canMark = !!assignment;
+            }
+        }
+
+        if (!canMark) {
+            return res.status(403).json({ message: 'Not authorized to mark this submission' });
         }
 
         // If setting an exemplar, clear any existing exemplar of the same type
@@ -332,24 +354,40 @@ exports.getExemplarSubmissions = async (req, res) => {
         const exemplars = await StudentSubmission.findAll({
             where: {
                 course_id: courseId,
-                exemplar_type: { [Op.not]: null }
+                exemplar_type: { [Op.not]: null } // Show submissions marked as exemplars (best/average/poor)
             },
             include: [
                 {
                     model: File,
                     as: 'assignment',
-                    attributes: ['id', 'filename', 'file_type']
+                    attributes: ['id', 'filename', 'file_type', 'section']
                 },
                 {
                     model: User,
                     as: 'student',
-                    attributes: ['id', 'name', 'email']
+                    attributes: ['id', 'name', 'email', 'section', 'academic_semester']
                 }
             ],
-            order: [['exemplar_type', 'ASC']]
+            order: [['exemplar_type', 'ASC'], ['marks', 'DESC']]
         });
 
-        res.json(exemplars);
+        // Enhance with enrollment section if different from user section
+        const enhancedExemplars = await Promise.all(exemplars.map(async (exemplar) => {
+            const enrollment = await Enrollment.findOne({
+                where: {
+                    student_id: exemplar.student_id,
+                    course_id: courseId
+                }
+            });
+
+            const exemplarData = exemplar.toJSON();
+            if (enrollment) {
+                exemplarData.enrollment_section = enrollment.section;
+            }
+            return exemplarData;
+        }));
+
+        res.json(enhancedExemplars);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error fetching exemplars' });
@@ -412,5 +450,37 @@ exports.downloadSubmission = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error downloading submission' });
+    }
+};
+
+// Coordinator toggles featured exemplar (double star for course file PDF)
+exports.toggleFeaturedExemplar = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { is_featured } = req.body; // boolean
+
+        const submission = await StudentSubmission.findByPk(id);
+        if (!submission) {
+            return res.status(404).json({ message: 'Submission not found' });
+        }
+
+        // Check if user is coordinator for this course
+        const course = await Course.findByPk(submission.course_id);
+        const isCoordinator = (course.coordinator_id === req.user.id);
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'hod');
+
+        if (!isAdmin && !isCoordinator) {
+            return res.status(403).json({ message: 'Only coordinators can mark featured exemplars' });
+        }
+
+        await submission.update({ is_featured_exemplar: is_featured });
+
+        res.json({
+            message: `Submission ${is_featured ? 'marked as featured' : 'unmarked as featured'}`,
+            submission
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error toggling featured exemplar' });
     }
 };

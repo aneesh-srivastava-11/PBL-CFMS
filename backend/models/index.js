@@ -32,6 +32,10 @@ CourseSection.belongsTo(Course, { foreignKey: 'course_id', as: 'course' });
 User.hasMany(CourseSection, { foreignKey: 'instructor_id', as: 'instructorSections' });
 CourseSection.belongsTo(User, { foreignKey: 'instructor_id', as: 'instructor' });
 
+// 4b. Direct Enrollment Associations (for querying enrollment details)
+Enrollment.belongsTo(User, { foreignKey: 'student_id', as: 'student' });
+Enrollment.belongsTo(Course, { foreignKey: 'course_id', as: 'course' });
+
 // 5. Student Submissions
 File.hasMany(StudentSubmission, { foreignKey: 'file_id', as: 'submissions', onDelete: 'CASCADE' });
 StudentSubmission.belongsTo(File, { foreignKey: 'file_id', as: 'assignment' });
