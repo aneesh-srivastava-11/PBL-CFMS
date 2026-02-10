@@ -32,9 +32,14 @@ const connectDB = async () => {
         await sequelize.authenticate();
         console.log('PostgreSQL Connected (Sequelize)');
 
-        // Sync models (careful with force: true in production!)
-        await sequelize.sync({ alter: true });
-        console.log('Database Synced');
+        // IMPORTANT: In production, schema is managed by migrations ONLY
+        // sync() with alter:true is DANGEROUS and can cause data loss
+        if (process.env.NODE_ENV === 'development') {
+            await sequelize.sync({ alter: true });
+            console.log('Database Synced (Development Only)');
+        } else {
+            console.log('Database schema managed by migrations (Production)');
+        }
     } catch (error) {
         console.error('Database Connection Error:', error);
         process.exit(1);

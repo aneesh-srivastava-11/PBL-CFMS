@@ -19,6 +19,9 @@ require('./config/firebaseAdmin');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust Proxy (Required for Vercel/behind reverse proxy)
+app.set('trust proxy', 1);
+
 // Security Middleware
 app.use(helmet()); // Set Security Headers
 app.use(xss()); // Prevent XSS Attacks
