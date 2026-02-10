@@ -39,13 +39,30 @@ const limiter = rateLimit({
 // Apply the rate limiting middleware to all requests.
 app.use(limiter);
 
-// CORS Configuration - Must come before other middleware
+// CORS Configuration - Allow frontend origins
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://pbl-cfms-frontend.vercel.app',
+    'https://pbl-cfms.vercel.app'
+];
+
 const corsOptions = {
-    origin: ['http://localhost:5173', 'http://localhost:3000'], // Frontend URLs
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or Postman)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Allow all origins for now
+        }
+    },
     credentials: true,
     optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
+
 
 // Regular Middleware
 app.use(express.json()); // Body parser should come after security headers but generally before XSS clean if possible, but xss-clean works on body
