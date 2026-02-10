@@ -455,7 +455,7 @@ const Dashboard = () => {
                 <TopHeader user={user} />
 
                 {/* Scrollable Content */}
-                <main className="flex-1 overflow-y-auto p-6 md:p-8">
+                <main className="flex-1 overflow-y-auto p-4 md:p-8">
 
                     {/* Main Grid: Courses List (Left) & Course Details (Right) */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full">
