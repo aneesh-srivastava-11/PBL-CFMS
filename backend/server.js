@@ -39,8 +39,15 @@ const limiter = rateLimit({
 // Apply the rate limiting middleware to all requests.
 app.use(limiter);
 
+// CORS Configuration - Must come before other middleware
+const corsOptions = {
+    origin: ['http://localhost:5173', 'http://localhost:3000'], // Frontend URLs
+    credentials: true,
+    optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
+
 // Regular Middleware
-app.use(cors());
 app.use(express.json()); // Body parser should come after security headers but generally before XSS clean if possible, but xss-clean works on body
 const os = require('os');
 app.use('/uploads', express.static(os.tmpdir()));
@@ -56,6 +63,7 @@ app.use('/api/courses', require('./routes/courseRoutes'));
 app.use('/api/enroll', require('./routes/enrollmentRoutes'));
 app.use('/api/hod', require('./routes/hodRoutes'));
 app.use('/api/coordinator', require('./routes/coordinatorRoutes'));
+app.use('/api/submissions', require('./routes/submissionRoutes'));
 
 // Error Handling Middleware
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');

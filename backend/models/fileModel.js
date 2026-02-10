@@ -47,6 +47,16 @@ const File = sequelize.define('File', {
     is_visible: {
         type: DataTypes.BOOLEAN,
         defaultValue: true
+    },
+    submissions_enabled: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        comment: 'Whether student submissions are allowed for this assignment'
+    },
+    submission_deadline: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'Deadline for student submissions'
     }
 }, {
     tableName: 'course_files',

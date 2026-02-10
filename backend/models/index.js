@@ -3,6 +3,7 @@ const User = require('./userModel');
 const Course = require('./courseModel');
 const File = require('./fileModel');
 const Enrollment = require('./enrollmentModel');
+const StudentSubmission = require('./studentSubmissionModel');
 
 const CourseSection = require('./courseSectionModel');
 
@@ -31,5 +32,15 @@ CourseSection.belongsTo(Course, { foreignKey: 'course_id', as: 'course' });
 User.hasMany(CourseSection, { foreignKey: 'instructor_id', as: 'instructorSections' });
 CourseSection.belongsTo(User, { foreignKey: 'instructor_id', as: 'instructor' });
 
+// 5. Student Submissions
+File.hasMany(StudentSubmission, { foreignKey: 'file_id', as: 'submissions', onDelete: 'CASCADE' });
+StudentSubmission.belongsTo(File, { foreignKey: 'file_id', as: 'assignment' });
+User.hasMany(StudentSubmission, { foreignKey: 'student_id', as: 'submissions' });
+StudentSubmission.belongsTo(User, { foreignKey: 'student_id', as: 'student' });
+User.hasMany(StudentSubmission, { foreignKey: 'graded_by', as: 'gradedSubmissions' });
+StudentSubmission.belongsTo(User, { foreignKey: 'graded_by', as: 'grader' });
+Course.hasMany(StudentSubmission, { foreignKey: 'course_id', as: 'submissions' });
+StudentSubmission.belongsTo(Course, { foreignKey: 'course_id', as: 'course' });
+
 // Sync Function
-module.exports = { User, Course, File, Enrollment, CourseSection };
+module.exports = { User, Course, File, Enrollment, CourseSection, StudentSubmission };
