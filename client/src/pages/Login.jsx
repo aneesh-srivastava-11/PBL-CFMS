@@ -5,7 +5,7 @@ import { auth } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 
 import bgImage from '../assets/image.png';
-import mujLogo from '../assets/mujLogo.png';
+import mujLogo from '../assets/Manipal_University_Jaipur_logo.png';
 
 
 const Login = () => {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Home, BookOpen, User, Book, Menu, LogOut, ChevronDown, ChevronRight, GraduationCap, DollarSign, FileText, Award, MessageCircle } from "lucide-react";
-import muJLogo from "../assets/mujLogo.png";
+import muJLogo from "../assets/Manipal_University_Jaipur_logo.png";
 
 export default function Sidebar({ user, onLogout }) {
     const location = useLocation();
@@ -31,7 +31,7 @@ export default function Sidebar({ user, onLogout }) {
             name: "DSW",
             icon: <User size={20} />,
             submenu: [
-                { name: "Scholarships", to: "#" }, // Should technically be nested but keeping flat for simple V1 unless deep nest requested
+                { name: "Scholarships", to: "#" },
                 { name: "Exams", to: "#" },
                 { name: "Finance", to: "#" },
                 { name: "Registration", to: "#" },
@@ -56,15 +56,15 @@ export default function Sidebar({ user, onLogout }) {
             {/* Logo & Toggle Section */}
             <div className="h-16 flex items-center justify-between px-4 border-b border-orange-500 bg-white">
                 {!isCollapsed && (
-                    <div className="flex items-center space-x-2 overflow-hidden">
-                        <img src={muJLogo} alt="MUJ Logo" className="h-10 w-auto" />
-                        <div className="flex flex-col whitespace-nowrap">
-                            <span className="text-[10px] font-bold text-orange-700 tracking-wide uppercase">Manipal University</span>
-                            <span className="text-[10px] font-bold text-orange-700 tracking-wide uppercase">Jaipur</span>
+                    <div className="flex items-center space-x-3 overflow-hidden">
+                        <img src={muJLogo} alt="MUJ Logo" className="h-10 w-auto object-contain" />
+                        <div className="flex flex-col whitespace-nowrap leading-tight">
+                            <span className="text-[10px] font-bold text-orange-900 tracking-wider uppercase">Manipal University</span>
+                            <span className="text-[10px] font-bold text-orange-900 tracking-wider uppercase">Jaipur</span>
                         </div>
                     </div>
                 )}
-                <button onClick={toggleSidebar} className="text-orange-700 hover:bg-orange-100 p-1 rounded-full">
+                <button onClick={toggleSidebar} className="text-orange-700 hover:bg-orange-100 p-1 rounded-full transition-colors">
                     <Menu size={24} />
                 </button>
             </div>
