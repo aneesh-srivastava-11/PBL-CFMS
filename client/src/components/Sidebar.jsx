@@ -12,7 +12,7 @@ export default function Sidebar({ user, onLogout }) {
         { name: "Examination", to: "#", icon: <FileText size={20} /> },
         { name: "Scholarship", to: "#", icon: <Award size={20} /> },
         { name: "Counselling", to: "#", icon: <MessageCircle size={20} /> },
-        { name: "E-Library", to: "#", icon: <Book size={20} /> },
+        { name: "E-Library", to: "https://muj.remotlog.com/", icon: <Book size={20} /> },
     ];
 
     return (
