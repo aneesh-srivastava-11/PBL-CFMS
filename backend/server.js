@@ -55,7 +55,7 @@ const corsOptions = {
         if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
-            callback(null, true); // Allow all origins for now
+            callback(new Error('Not allowed by CORS')); // ✅ Reject unknown origins
         }
     },
     credentials: true,
