@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, BookOpen, User, Book, Menu, LogOut, ChevronDown, ChevronRight, GraduationCap, DollarSign, FileText, Award, MessageCircle } from "lucide-react";
 import muJLogo from "../assets/Manipal_University_Jaipur_logo.png";
 
 export default function Sidebar({ user, onLogout }) {
     const location = useLocation();
+    const navigate = useNavigate();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [openMenus, setOpenMenus] = useState({});
 
@@ -16,7 +17,17 @@ export default function Sidebar({ user, onLogout }) {
         setIsCollapsed(!isCollapsed);
     };
 
+    const handleLogout = () => {
+        onLogout();
+        navigate('/login');
+    };
+
     const menuItems = [
+        {
+            name: "Home",
+            icon: <Home size={20} />,
+            to: "/dashboard"
+        },
         {
             name: "Academics",
             icon: <GraduationCap size={20} />,
@@ -69,16 +80,7 @@ export default function Sidebar({ user, onLogout }) {
                 </button>
             </div>
 
-            {/* Home Link (Always visible) */}
-            <div className="mt-4 px-2">
-                <Link to="/dashboard"
-                    className={`flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-orange-500 transition-colors ${location.pathname === '/dashboard' ? 'bg-orange-700' : ''}`}
-                    title="Home"
-                >
-                    <Home size={20} />
-                    {!isCollapsed && <span>Home</span>}
-                </Link>
-            </div>
+
 
             {/* Menu Label */}
             {!isCollapsed && (
@@ -140,7 +142,7 @@ export default function Sidebar({ user, onLogout }) {
             {/* Logout Button */}
             <div className="p-4 border-t border-orange-500">
                 <button
-                    onClick={onLogout}
+                    onClick={handleLogout}
                     className="w-full flex items-center justify-center space-x-2 bg-orange-700 hover:bg-orange-800 text-white py-2 px-4 rounded-lg transition"
                     title="Logout"
                 >
