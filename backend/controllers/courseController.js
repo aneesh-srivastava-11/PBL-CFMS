@@ -10,13 +10,26 @@ const path = require('path');
 const os = require('os');
 const { getFileStream } = require('../utils/s3');
 const { PDFDocument } = require('pdf-lib');
+const { validateCourseFiles, getRequiredFilesList } = require('../utils/courseFileValidation');
 
 exports.createCourse = asyncHandler(async (req, res) => {
-    const { course_code, course_name, semester } = req.body;
+    const { course_code, course_name, semester, course_type } = req.body;
     const faculty_id = req.user.id;
 
-    const course = await Course.create({ course_code, course_name, semester, faculty_id });
-    logger.info(`[Course] Created course ${course_code} by Faculty ${faculty_id}`);
+    // Validate course_type
+    if (course_type && !['theory', 'lab'].includes(course_type)) {
+        res.status(400);
+        throw new Error('Invalid course type. Must be "theory" or "lab"');
+    }
+
+    const course = await Course.create({
+        course_code,
+        course_name,
+        semester,
+        faculty_id,
+        course_type: course_type || 'theory' // Default to theory if not provided
+    });
+    logger.info(`[Course] Created ${course_type || 'theory'} course ${course_code} by Faculty ${faculty_id}`);
     res.status(201).json(course);
 });
 
@@ -353,4 +366,39 @@ exports.generateCoursePDF = asyncHandler(async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=${course.course_code}_CourseFile.pdf`);
     res.send(Buffer.from(pdfBytes));
+});
+
+/**
+ * Validate if all required files are uploaded for a course
+ * GET /api/courses/:id/validate-files
+ */
+exports.validateCourseFilesHandler = asyncHandler(async (req, res) => {
+    const courseId = req.params.id;
+
+    // Get course with type
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+        res.status(404);
+        throw new Error('Course not found');
+    }
+
+    // Get all uploaded files for this course
+    const uploadedFiles = await File.findAll({
+        where: { course_id: courseId },
+        attributes: ['id', 'filename', 'file_type']
+    });
+
+    // Validate against required list
+    const validation = validateCourseFiles(uploadedFiles, course.course_type);
+    const requiredList = getRequiredFilesList(course.course_type);
+
+    res.json({
+        course_type: course.course_type,
+        valid: validation.valid,
+        totalRequired: validation.totalRequired,
+        totalUploaded: validation.totalUploaded,
+        missing: validation.missing,
+        uploaded: validation.uploaded,
+        requiredFiles: requiredList
+    });
 });

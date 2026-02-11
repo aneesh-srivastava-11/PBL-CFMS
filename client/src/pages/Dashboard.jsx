@@ -8,6 +8,7 @@ import AssignmentSubmissions from '../components/AssignmentSubmissions';
 import GradingPanel from '../components/GradingPanel';
 import ExemplarPanel from '../components/ExemplarPanel';
 import { Book, User as UserIcon, Folder as FolderIcon, FolderOpen, ChevronDown, Download, Trash2, Eye, EyeOff, XCircle, CheckCircle, Upload, Award, Clock, FileText, Edit3, ToggleLeft, ToggleRight } from "lucide-react";
+import CourseFileValidationModal from '../components/CourseFileValidationModal';
 
 const Dashboard = () => {
     const { user, logout, loading, updateUser } = useContext(AuthContext);
@@ -15,7 +16,7 @@ const Dashboard = () => {
 
     // --- State Declarations ---
     const [courses, setCourses] = useState([]);
-    const [newCourse, setNewCourse] = useState({ course_code: '', course_name: '', semester: '' });
+    const [newCourse, setNewCourse] = useState({ course_code: '', course_name: '', semester: '', course_type: 'theory' });
     const [studentEmail, setStudentEmail] = useState(''); // Enrollment State
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [file, setFile] = useState(null);
@@ -25,6 +26,7 @@ const Dashboard = () => {
     const [courseFiles, setCourseFiles] = useState([]);
     const [showValidationModal, setShowValidationModal] = useState(false);
     const [missingFiles, setMissingFiles] = useState([]);
+    const [validationData, setValidationData] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [expandedFolders, setExpandedFolders] = useState({}); // Folder State
     const [enrolledStudents, setEnrolledStudents] = useState([]); // Enrolled Students State
@@ -296,6 +298,24 @@ const Dashboard = () => {
         } catch (error) {
             console.error('Delete failed', error);
             alert('Failed to delete file');
+        }
+    };
+
+    // Check if all required files are uploaded before course file generation
+    const checkRequiredFiles = async (courseId) => {
+        try {
+            const token = await user.token;
+            const response = await axios.get(
+                `${apiUrl}/api/courses/${courseId}/validate-files`,
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            );
+            setValidationData(response.data);
+            setShowValidationModal(true);
+        } catch (error) {
+            console.error('Validation error:', error);
+            alert('Failed to validate files: ' + (error.response?.data?.message || error.message));
         }
     };
 
@@ -697,6 +717,10 @@ const Dashboard = () => {
                                     <form onSubmit={handleCreateCourse} className="space-y-2">
                                         <input className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500" placeholder="Code (e.g. CS101)" value={newCourse.course_code} onChange={e => setNewCourse({ ...newCourse, course_code: e.target.value })} required />
                                         <input className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500" placeholder="Name" value={newCourse.course_name} onChange={e => setNewCourse({ ...newCourse, course_name: e.target.value })} required />
+                                        <select className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500" value={newCourse.course_type} onChange={e => setNewCourse({ ...newCourse, course_type: e.target.value })} required>
+                                            <option value="theory">Theory Course</option>
+                                            <option value="lab">Lab Course</option>
+                                        </select>
                                         <input className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500" placeholder="Semester" value={newCourse.semester} onChange={e => setNewCourse({ ...newCourse, semester: e.target.value })} required />
                                         <button type="submit" className="w-full bg-orange-600 text-white text-sm font-medium py-2 rounded hover:bg-orange-700 transition">Add Course</button>
                                     </form>
@@ -777,9 +801,18 @@ const Dashboard = () => {
                                     <div className="flex gap-2">
                                         <button onClick={handleDownloadZip} className="text-xs bg-white border border-orange-500 text-orange-600 px-3 py-1.5 rounded hover:bg-orange-50 transition">Download Zip</button>
                                         {(user.is_coordinator || selectedCourse.coordinator_id === user.id) && (
-                                            <button onClick={() => handleGenerateCourseFile(false)} disabled={isGenerating} className="text-xs bg-orange-600 text-white px-3 py-1.5 rounded hover:bg-orange-700 transition">
-                                                {isGenerating ? 'Wait...' : 'Generate PDF'}
-                                            </button>
+                                            <>
+                                                <button
+                                                    onClick={() => checkRequiredFiles(selectedCourse.id)}
+                                                    className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition flex items-center gap-1"
+                                                >
+                                                    <FileText className="w-3 h-3" />
+                                                    Check Files
+                                                </button>
+                                                <button onClick={() => handleGenerateCourseFile(false)} disabled={isGenerating} className="text-xs bg-orange-600 text-white px-3 py-1.5 rounded hover:bg-orange-700 transition">
+                                                    {isGenerating ? 'Wait...' : 'Generate PDF'}
+                                                </button>
+                                            </>
                                         )}
                                     </div>
                                 )}
@@ -1183,6 +1216,18 @@ const Dashboard = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Course File Validation Modal */}
+            {showValidationModal && (
+                <CourseFileValidationModal
+                    validationData={validationData}
+                    onClose={() => setShowValidationModal(false)}
+                    onGenerate={() => {
+                        setShowValidationModal(false);
+                        // Proceed with course file generation if needed
+                    }}
+                />
             )}
         </div>
     );

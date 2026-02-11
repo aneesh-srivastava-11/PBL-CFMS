@@ -30,6 +30,12 @@ const Course = sequelize.define('Course', {
             model: 'users',
             key: 'id'
         }
+    },
+    course_type: {
+        type: DataTypes.ENUM('theory', 'lab'),
+        allowNull: false,
+        defaultValue: 'theory',
+        comment: 'Type of course - theory or lab'
     }
 }, {
     tableName: 'courses',

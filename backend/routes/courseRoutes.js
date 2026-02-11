@@ -23,6 +23,7 @@ router.route('/:id')
     .delete(protect, authorize('admin', 'hod'), require('../controllers/courseController').deleteCourse);
 
 router.get('/:id/download', protect, authorize('admin', 'faculty', 'reviewer', 'hod'), require('../controllers/courseController').downloadCourseZip);
+router.get('/:id/validate-files', protect, require('../controllers/courseController').validateCourseFilesHandler);
 router.post('/:id/generate-pdf', protect, authorize('admin', 'faculty', 'hod'), require('../controllers/courseController').generateCoursePDF);
 
 
