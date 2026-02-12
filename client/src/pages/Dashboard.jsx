@@ -799,8 +799,10 @@ const Dashboard = () => {
                                 </h3>
                                 {selectedCourse && (
                                     <div className="flex gap-2">
-                                        <button onClick={handleDownloadZip} className="text-xs bg-white border border-orange-500 text-orange-600 px-3 py-1.5 rounded hover:bg-orange-50 transition">Download Zip</button>
-                                        {(user.is_coordinator || selectedCourse.coordinator_id === user.id) && (
+                                        {user.role !== 'student' && (
+                                            <button onClick={handleDownloadZip} className="text-xs bg-white border border-orange-500 text-orange-600 px-3 py-1.5 rounded hover:bg-orange-50 transition">Download Zip</button>
+                                        )}
+                                        {(user.is_coordinator || selectedCourse.coordinator_id === user.id || user.role === 'hod' || user.role === 'admin') && (
                                             <>
                                                 <button
                                                     onClick={() => checkRequiredFiles(selectedCourse.id)}
@@ -1064,7 +1066,7 @@ const Dashboard = () => {
                                                                             </div>
                                                                         </div>
                                                                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                            {user.role === 'faculty' && (
+                                                                            {(user.role === 'faculty' || user.role === 'hod' || user.role === 'admin' || user.is_coordinator) && (
                                                                                 <button onClick={() => handleToggleVisibility(doc.id)} className={`p-1 rounded ${doc.is_visible ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`} title="Toggle Visibility">
                                                                                     {doc.is_visible ? <Eye size={14} /> : <EyeOff size={14} />}
                                                                                 </button>
@@ -1075,7 +1077,7 @@ const Dashboard = () => {
                                                                             <button onClick={(e) => handleDownloadFile(e, doc.id, doc.filename)} className="p-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100" title="Download">
                                                                                 <Download size={14} />
                                                                             </button>
-                                                                            {user.role === 'faculty' && (
+                                                                            {(user.role === 'faculty' || user.role === 'hod' || user.role === 'admin' || user.is_coordinator) && (
                                                                                 <button onClick={() => handleDeleteFile(doc.id)} className="p-1 bg-red-50 text-red-600 rounded hover:bg-red-100" title="Delete">
                                                                                     <Trash2 size={14} />
                                                                                 </button>
@@ -1111,7 +1113,7 @@ const Dashboard = () => {
                                                 )}
 
                                                 {/* Instructor View: Grading Panel (only if they teach a section) */}
-                                                {user.role === 'faculty' && sections.some(s => s.instructor_id === user.id) && (
+                                                {(['faculty', 'hod', 'admin'].includes(user.role) || user.is_coordinator) && sections.some(s => s.instructor_id === user.id) && (
                                                     <GradingPanel
                                                         assignments={courseFiles}
                                                         selectedAssignment={selectedAssignment}
