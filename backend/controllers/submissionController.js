@@ -140,7 +140,8 @@ exports.getSubmissionsForAssignment = async (req, res) => {
 
         // 2. Check instructor authorization (only see submissions from their section)
         const course = await Course.findByPk(assignmentFile.course_id);
-        const isCoordinator = (course.coordinator_id === req.user.id);
+        // Check authorization
+        const isCoordinator = (await course.countCoordinators({ where: { id: req.user.id } })) > 0;
         const isAdmin = (req.user.role === 'admin' || req.user.role === 'hod');
 
         let whereClause = { file_id: fileId };
@@ -277,6 +278,41 @@ exports.markExemplar = async (req, res) => {
             return res.status(404).json({ message: 'Submission not found' });
         }
 
+        // Check exemplar limit (Max 2 per type per assignment)
+        if (exemplar_type) {
+            const count = await StudentSubmission.count({
+                where: {
+                    file_id: submission.file_id,
+                    exemplar_type: exemplar_type,
+                    id: { [Op.ne]: id } // Exclude current submission if it's already marked (though logic below clears it, safer to check count of OTHERS)
+                }
+            });
+
+            // Actually, we should check total count including this one if we are adding. 
+            // Better logic: Count all with this file_id and exemplar_type.
+            const existingCount = await StudentSubmission.count({
+                where: {
+                    file_id: submission.file_id,
+                    exemplar_type: exemplar_type
+                }
+            });
+
+            // If we are changing THIS submission to this type, and count is already 2, failure.
+            // But if this submission IS one of the 2, it's fine.
+            // So exclude current ID from count.
+            const otherCount = await StudentSubmission.count({
+                where: {
+                    file_id: submission.file_id,
+                    exemplar_type: exemplar_type,
+                    id: { [Op.ne]: id }
+                }
+            });
+
+            if (otherCount >= 2) {
+                return res.status(400).json({ message: `Cannot mark more than 2 submissions as '${exemplar_type}'.` });
+            }
+        }
+
         // Check authorization (must teach the student's section to mark exemplar)
         const course = await Course.findByPk(submission.course_id);
         const isAdmin = (req.user.role === 'admin' || req.user.role === 'hod');
@@ -344,7 +380,8 @@ exports.getExemplarSubmissions = async (req, res) => {
         }
 
         // Check authorization
-        const isCoordinator = (course.coordinator_id === req.user.id);
+        // Check authorization
+        const isCoordinator = (await course.countCoordinators({ where: { id: req.user.id } })) > 0;
         const isAdmin = (req.user.role === 'admin' || req.user.role === 'hod');
 
         if (!isAdmin && !isCoordinator) {
@@ -406,7 +443,8 @@ exports.downloadSubmission = async (req, res) => {
 
         // Authorization check
         const course = await Course.findByPk(submission.course_id);
-        const isCoordinator = (course.coordinator_id === req.user.id);
+        // Check authorization
+        const isCoordinator = (await course.countCoordinators({ where: { id: req.user.id } })) > 0;
         const isAdmin = (req.user.role === 'admin' || req.user.role === 'hod');
         const isStudent = (submission.student_id === req.user.id);
 
@@ -466,7 +504,8 @@ exports.toggleFeaturedExemplar = async (req, res) => {
 
         // Check if user is coordinator for this course
         const course = await Course.findByPk(submission.course_id);
-        const isCoordinator = (course.coordinator_id === req.user.id);
+        // Check authorization
+        const isCoordinator = (await course.countCoordinators({ where: { id: req.user.id } })) > 0;
         const isAdmin = (req.user.role === 'admin' || req.user.role === 'hod');
 
         if (!isAdmin && !isCoordinator) {

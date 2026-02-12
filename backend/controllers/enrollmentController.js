@@ -22,7 +22,8 @@ exports.enrollStudent = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Course not found');
     }
-    if (course.faculty_id !== req.user.id && req.user.role !== 'admin') {
+    const isCoordinator = (await course.countCoordinators({ where: { id: req.user.id } })) > 0;
+    if (course.faculty_id !== req.user.id && req.user.role !== 'admin' && !isCoordinator) {
         res.status(403);
         throw new Error('Not authorized to enroll students in this course');
     }
@@ -69,7 +70,8 @@ exports.deleteEnrollment = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Course not found');
     }
-    if (course.faculty_id !== req.user.id && req.user.role !== 'admin') {
+    const isCoordinator = (await course.countCoordinators({ where: { id: req.user.id } })) > 0;
+    if (course.faculty_id !== req.user.id && req.user.role !== 'admin' && !isCoordinator) {
         res.status(403);
         throw new Error('Not authorized to manage enrollments for this course');
     }
@@ -113,7 +115,9 @@ exports.getEnrolledStudents = asyncHandler(async (req, res) => {
     // Check Permission & Filter Scope
     let sectionFilter = null;
 
-    if (req.user.role === 'admin' || course.faculty_id === req.user.id || course.coordinator_id === req.user.id) {
+    const isCoordinator = (await course.countCoordinators({ where: { id: req.user.id } })) > 0;
+
+    if (req.user.role === 'admin' || course.faculty_id === req.user.id || isCoordinator) {
         // Full Access: See all students
     } else {
         // Check if Section Instructor

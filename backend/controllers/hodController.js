@@ -6,6 +6,7 @@ const fs = require('fs');
 const util = require('util');
 const unlinkFile = util.promisify(fs.unlink);
 const { autoEnrollStudentBySection } = require('../utils/autoEnrollment');
+const { createFirebaseUser } = require('../services/firebaseService');
 
 // @desc    Create a new course
 // @route   POST /api/hod/courses
@@ -47,15 +48,17 @@ exports.assignCoordinator = asyncHandler(async (req, res) => {
         throw new Error('Invalid Faculty ID');
     }
 
-    course.coordinator_id = facultyId;
-    await course.save();
+    // Use Sequelize 'add' method for Many-to-Many
+    // course.addCoordinator(faculty)
+    // Note: The alias in models/index.js is 'coordinators'
+    await course.addCoordinator(faculty);
 
-    // Also update the faculty's status
+    // Also update the faculty's status (is_coordinator flag on User model)
     faculty.is_coordinator = true;
     await faculty.save();
 
-    logger.info(`[HOD] Assigned ${faculty.name} as coordinator for ${course.course_code}`);
-    res.json({ message: `Assigned ${faculty.name} as coordinator for ${course.course_code}` });
+    logger.info(`[HOD] Added ${faculty.name} as coordinator for ${course.course_code}`);
+    res.json({ message: `Added ${faculty.name} as coordinator for ${course.course_code}` });
 });
 
 // @desc    Get All Faculties (Use to select coordinator)
@@ -143,11 +146,24 @@ exports.bulkAddFaculties = asyncHandler(async (req, res) => {
             return;
         }
 
-        await User.bulkCreate(finalRows);
-        logger.info(`[HOD] Bulk added ${finalRows.length} faculties (skipped ${skipped.length})`);
+        // Create users in Firebase AND Database
+        const createdUsers = [];
+        for (const row of finalRows) {
+            try {
+                const uid = await createFirebaseUser(row.email, row.password, row.name);
+                row.firebase_uid = uid; // Add UID to the row data
+                const newUser = await User.create(row);
+                createdUsers.push(newUser);
+            } catch (err) {
+                logger.error(`[BulkAdd] Failed to create user ${row.email}: ${err.message}`);
+                skipped.push({ email: row.email, reason: `Firebase Error: ${err.message}` });
+            }
+        }
+
+        logger.info(`[HOD] Bulk added ${createdUsers.length} faculties (skipped ${skipped.length})`);
         res.status(201).json({
-            message: `Successfully added ${finalRows.length} faculties`,
-            added: finalRows.length,
+            message: `Successfully added ${createdUsers.length} faculties`,
+            added: createdUsers.length,
             skipped: skipped.length,
             skipped_details: skipped.length > 0 ? skipped : undefined
         });
@@ -233,8 +249,21 @@ exports.bulkAddStudents = asyncHandler(async (req, res) => {
             return;
         }
 
-        const createdUsers = await User.bulkCreate(finalRows);
-        logger.info(`[HOD] Bulk added ${finalRows.length} students (skipped ${skipped.length})`);
+        // Create users in Firebase AND Database
+        const createdUsers = [];
+        for (const row of finalRows) {
+            try {
+                const uid = await createFirebaseUser(row.email, row.password, row.name);
+                row.firebase_uid = uid;
+                const newUser = await User.create(row);
+                createdUsers.push(newUser);
+            } catch (err) {
+                logger.error(`[BulkAdd] Failed to create user ${row.email}: ${err.message}`);
+                skipped.push({ email: row.email, reason: `Firebase Error: ${err.message}` });
+            }
+        }
+
+        logger.info(`[HOD] Bulk added ${createdUsers.length} students (skipped ${skipped.length})`);
 
         // Auto-enroll all students in courses matching their sections
         let totalEnrolled = 0;
@@ -246,8 +275,8 @@ exports.bulkAddStudents = asyncHandler(async (req, res) => {
         }
 
         res.status(201).json({
-            message: `Successfully added ${finalRows.length} students`,
-            added: finalRows.length,
+            message: `Successfully added ${createdUsers.length} students`,
+            added: createdUsers.length,
             skipped: skipped.length,
             auto_enrolled_total: totalEnrolled,
             skipped_details: skipped.length > 0 ? skipped : undefined
@@ -257,6 +286,73 @@ exports.bulkAddStudents = asyncHandler(async (req, res) => {
     } finally {
         try { await unlinkFile(req.file.path); } catch (e) { logger.warn(`[BulkAdd] Failed to delete temp file: ${e.message}`); }
     }
+});
+
+// @desc    Create a Single User (HOD Manual Add)
+// @route   POST /api/hod/users
+// @access  Private (HOD Only)
+exports.createUser = asyncHandler(async (req, res) => {
+    const { name, email, role, phone_number, section, academic_semester } = req.body;
+
+    if (!name || !email || !role) {
+        res.status(400);
+        throw new Error('Name, Email, and Role are required');
+    }
+
+    // Domain Validation
+    if (role === 'student' && !email.toLowerCase().endsWith('@muj.manipal.edu')) {
+        res.status(400);
+        throw new Error('Student email must end with @muj.manipal.edu');
+    }
+    if (role === 'faculty' && !email.toLowerCase().endsWith('@jaipur.manipal.edu')) {
+        res.status(400);
+        throw new Error('Faculty email must end with @jaipur.manipal.edu');
+    }
+
+    // Check if user exists in DB
+    const userExists = await User.findOne({ where: { email } });
+    if (userExists) {
+        res.status(400);
+        throw new Error('User already exists');
+    }
+
+    // Create in Firebase
+    let firebaseUid;
+    try {
+        firebaseUid = await createFirebaseUser(email, 'password123', name);
+    } catch (error) {
+        res.status(500);
+        throw new Error(`Failed to create Firebase user: ${error.message}`);
+    }
+
+    // Create in DB
+    const user = await User.create({
+        name,
+        email,
+        role,
+        phone_number,
+        section: role === 'student' ? section : null,
+        academic_semester: role === 'student' ? academic_semester : null,
+        password: 'password123',
+        firebase_uid: firebaseUid
+    });
+
+    logger.info(`[HOD] Manually created user: ${email} (${role})`);
+
+    // Auto-enroll if student
+    let autoEnrollResult = null;
+    if (role === 'student' && section) {
+        autoEnrollResult = await autoEnrollStudentBySection(user.id, section);
+    }
+
+    res.status(201).json({
+        message: 'User created successfully',
+        user,
+        auto_enrollment: autoEnrollResult ? {
+            enrolled: autoEnrollResult.enrolled,
+            courses: autoEnrollResult.courses
+        } : null
+    });
 });
 
 // @desc    Get All Students (HOD Global List)

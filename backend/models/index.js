@@ -12,8 +12,9 @@ User.hasMany(Course, { foreignKey: 'faculty_id', as: 'createdCourses' });
 Course.belongsTo(User, { foreignKey: 'faculty_id', as: 'creator' });
 
 // 1b. Course has a Coordinator (User)
-Course.belongsTo(User, { foreignKey: 'coordinator_id', as: 'coordinator' });
-User.hasMany(Course, { foreignKey: 'coordinator_id', as: 'coordinatedCourses' });
+// 1b. Course has Coordinators (Many-to-Many)
+Course.belongsToMany(User, { through: 'CourseCoordinators', foreignKey: 'course_id', as: 'coordinators' });
+User.belongsToMany(Course, { through: 'CourseCoordinators', foreignKey: 'coordinator_id', as: 'coordinatedCourses' });
 
 // 2. Course has many Files
 Course.hasMany(File, { foreignKey: 'course_id', as: 'files', onDelete: 'CASCADE' });

@@ -17,7 +17,7 @@ exports.toggleSubmissions = async (req, res) => {
 
         // Check authorization - only faculty who uploaded or coordinator/admin
         const course = await Course.findByPk(file.course_id);
-        const isCoordinator = (course.coordinator_id === req.user.id);
+        const isCoordinator = (await course.countCoordinators({ where: { id: req.user.id } })) > 0;
         const isAdmin = (req.user.role === 'admin' || req.user.role === 'hod');
         const isUploader = (file.uploaded_by === req.user.id);
 

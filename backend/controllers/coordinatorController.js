@@ -18,7 +18,9 @@ exports.assignInstructorToSection = asyncHandler(async (req, res) => {
     }
 
     // Verify Caller is the Coordinator
-    if (course.coordinator_id !== req.user.id && req.user.role !== 'admin') {
+    const isCoordinator = (await course.countCoordinators({ where: { id: req.user.id } })) > 0;
+
+    if (!isCoordinator && req.user.role !== 'admin') {
         res.status(403);
         throw new Error('Not authorized. Only the Course Coordinator can do this.');
     }

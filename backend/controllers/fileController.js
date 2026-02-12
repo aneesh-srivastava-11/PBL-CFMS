@@ -24,7 +24,7 @@ exports.uploadFileHandler = async (req, res) => {
         if (req.user.role === 'admin' || req.user.role === 'hod') {
             // HOD/Admin can upload to any section or global
             targetSection = section || null;
-        } else if (course.coordinator_id === req.user.id) {
+        } else if ((await course.countCoordinators({ where: { id: req.user.id } })) > 0) {
             // Coordinator can upload to any section or global
             targetSection = section || null;
         } else if (req.user.role === 'faculty') {
@@ -91,7 +91,7 @@ exports.getFilesByCourseHandler = async (req, res) => {
         let whereClause = { course_id: courseId };
 
         // 1. HOD / Admin / Course Coordinator -> specific logic: See ALL
-        const isCoordinator = (course.coordinator_id === userId);
+        const isCoordinator = (await course.countCoordinators({ where: { id: userId } })) > 0;
 
         if (userRole === 'admin' || userRole === 'hod' || isCoordinator) {
             // See ALL files (Global + All Sections)
@@ -162,10 +162,12 @@ exports.toggleFileVisibilityHandler = async (req, res) => {
         // Logic check: Only Uploader or Coordinator/HOD can toggle
         const course = await Course.findByPk(file.course_id);
 
+        const isCoordinator = (await course.countCoordinators({ where: { id: req.user.id } })) > 0;
+
         const canEdit = (
             req.user.role === 'admin' ||
             req.user.role === 'hod' ||
-            course.coordinator_id === req.user.id ||
+            isCoordinator ||
             file.uploaded_by === req.user.id
         );
 
@@ -191,10 +193,12 @@ exports.deleteFileHandler = async (req, res) => {
 
         const course = await Course.findByPk(file.course_id);
 
+        const isCoordinator = (await course.countCoordinators({ where: { id: req.user.id } })) > 0;
+
         const canDelete = (
             req.user.role === 'admin' ||
             req.user.role === 'hod' ||
-            course.coordinator_id === req.user.id ||
+            isCoordinator ||
             file.uploaded_by === req.user.id
         );
 

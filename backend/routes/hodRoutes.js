@@ -33,6 +33,14 @@ expressRouter.post('/bulk/faculties', upload.single('file'), bulkAddFaculties);
 expressRouter.post('/bulk/students', upload.single('file'), bulkAddStudents);
 
 // New Management Routes
+expressRouter.post('/users',
+    validate([
+        body('name').trim().notEmpty().withMessage('Name is required'),
+        body('email').isEmail().withMessage('Valid email is required'),
+        body('role').isIn(['student', 'faculty']).withMessage('Role must be student or faculty')
+    ]),
+    require('../controllers/hodController').createUser
+);
 expressRouter.get('/students', require('../controllers/hodController').getAllStudents);
 expressRouter.put('/users/:id', require('../controllers/hodController').updateUser);
 

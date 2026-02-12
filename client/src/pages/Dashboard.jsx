@@ -88,16 +88,16 @@ const Dashboard = () => {
             fetchCourseFiles(selectedCourse.id);
 
             // If Coordinator/HOD/Admin, fetch enrollment
-            if (user.is_coordinator || user.role === 'hod' || user.role === 'admin' || selectedCourse.coordinator_id === user.id) {
+            const isCoord = selectedCourse.coordinators?.some(c => c.id === user.id);
+            if (user.is_coordinator || user.role === 'hod' || user.role === 'admin' || isCoord) {
                 fetchEnrolledStudents(selectedCourse.id);
             }
 
             // If HOD/Admin/Coordinator, fetch sections for management
-            if (user.role === 'hod' || user.role === 'admin' || user.is_coordinator || selectedCourse.coordinator_id === user.id) {
+            if (user.role === 'hod' || user.role === 'admin' || user.is_coordinator || isCoord) {
                 fetchSections(selectedCourse.id);
                 // Ensure faculties are loaded for assignment dropdowns
-                // Ensure faculties are loaded for assignment dropdowns
-                if ((user.role === 'hod' || user.role === 'admin' || user.is_coordinator || selectedCourse.coordinator_id === user.id) && faculties.length === 0) {
+                if ((user.role === 'hod' || user.role === 'admin' || user.is_coordinator || isCoord) && faculties.length === 0) {
                     fetchFaculties();
                 }
             }
@@ -113,7 +113,7 @@ const Dashboard = () => {
         if (user.role === 'student') {
             fetchMySubmissions();
         }
-        if (selectedCourse && (selectedCourse.coordinator_id === user.id || user.role === 'admin' || user.role === 'hod')) {
+        if (selectedCourse && (selectedCourse.coordinators?.some(c => c.id === user.id) || user.role === 'admin' || user.role === 'hod')) {
             fetchExemplarSubmissions(selectedCourse.id);
         }
     }, [selectedCourse, user]);
@@ -781,12 +781,12 @@ const Dashboard = () => {
                                         <div className="flex flex-col">
                                             <span className="flex items-center gap-2">
                                                 {selectedCourse.course_name}
-                                                {selectedCourse.coordinator_id === user.id && <span className="bg-orange-100 text-orange-700 text-xs px-2 rounded-full">Coordinator</span>}
+                                                {selectedCourse.coordinators?.some(c => c.id === user.id) && <span className="bg-orange-100 text-orange-700 text-xs px-2 rounded-full">Coordinator</span>}
                                             </span>
                                             {/* Details Subheader */}
                                             <div className="text-xs font-normal text-gray-500 mt-1 flex flex-col gap-0.5">
-                                                {selectedCourse.coordinator && (
-                                                    <span>Coordinator: {selectedCourse.coordinator.name} ({selectedCourse.coordinator.phone_number || 'No Phone'})</span>
+                                                {selectedCourse.coordinators && selectedCourse.coordinators.length > 0 && (
+                                                    <span>Coordinators: {selectedCourse.coordinators.map(c => c.name).join(', ')}</span>
                                                 )}
                                                 {selectedCourse.my_instructor && (
                                                     <span className="text-blue-600">
@@ -802,7 +802,8 @@ const Dashboard = () => {
                                         {user.role !== 'student' && (
                                             <button onClick={handleDownloadZip} className="text-xs bg-white border border-orange-500 text-orange-600 px-3 py-1.5 rounded hover:bg-orange-50 transition">Download Zip</button>
                                         )}
-                                        {(user.is_coordinator || selectedCourse.coordinator_id === user.id || user.role === 'hod' || user.role === 'admin') && (
+                                        {/* Permission Check: Is Coordinator (in list), HOD, or Admin */}
+                                        {(selectedCourse.coordinators?.some(c => c.id === user.id) || user.role === 'hod' || user.role === 'admin') && (
                                             <>
                                                 <button
                                                     onClick={() => checkRequiredFiles(selectedCourse.id)}
@@ -832,24 +833,25 @@ const Dashboard = () => {
                                         {/* HOD: ASSIGN COORDINATOR */}
                                         {(user.role === 'hod' || user.role === 'admin') && (
                                             <div className="bg-purple-50 border border-purple-200 rounded p-4">
-                                                <h4 className="text-sm font-bold text-purple-800 mb-2 uppercase tracking-wide">Assign Coordinator</h4>
+                                                <h4 className="text-sm font-bold text-purple-800 mb-2 uppercase tracking-wide">Add Coordinator</h4>
                                                 <div className="flex gap-2">
                                                     <select
                                                         className="flex-1 text-sm border-gray-300 rounded p-2"
                                                         onChange={(e) => handleAssignCoordinator(selectedCourse.id, e.target.value)}
                                                         defaultValue=""
                                                     >
-                                                        <option value="" disabled>Select Faculty</option>
+                                                        <option value="" disabled>Select Faculty to Add</option>
                                                         {faculties.map(f => (
                                                             <option key={f.id} value={f.id}>{f.name} ({f.email})</option>
                                                         ))}
                                                     </select>
                                                 </div>
+                                                <p className="text-xs text-purple-600 mt-1">Current: {selectedCourse.coordinators?.map(c => c.name).join(', ') || 'None'}</p>
                                             </div>
                                         )}
 
                                         {/* COORDINATOR: MANAGE INSTRUCTORS */}
-                                        {(selectedCourse.coordinator_id === user.id || user.role === 'admin') && (
+                                        {(selectedCourse.coordinators?.some(c => c.id === user.id) || user.role === 'admin') && (
                                             <div className="bg-blue-50 border border-blue-200 rounded p-4">
                                                 <h4 className="text-sm font-bold text-blue-800 mb-2 uppercase tracking-wide">Course Instructors (Section Map)</h4>
                                                 <form onSubmit={handleAssignInstructor} className="flex gap-2 mb-3">
@@ -918,7 +920,7 @@ const Dashboard = () => {
                                                     </div>
 
                                                     {/* Section Selector (Coordinator/HOD only) */}
-                                                    {(selectedCourse.coordinator_id === user.id || user.role === 'hod' || user.role === 'admin') && (
+                                                    {(selectedCourse.coordinators?.some(c => c.id === user.id) || user.role === 'hod' || user.role === 'admin') && (
                                                         <div className="w-full md:w-32">
                                                             <label className="text-xs font-semibold text-gray-500 mb-1 block">For Section</label>
                                                             <input
@@ -939,7 +941,7 @@ const Dashboard = () => {
                                         {/* Files List */}
                                         <div className="space-y-4">
                                             {/* ENROLLMENT SECTION (Coordinator / HOD) */}
-                                            {(user.is_coordinator || selectedCourse.coordinator_id === user.id || user.role === 'hod' || user.role === 'admin') && (
+                                            {(user.is_coordinator || selectedCourse.coordinators?.some(c => c.id === user.id) || user.role === 'hod' || user.role === 'admin') && (
                                                 <div className="border border-green-200 bg-green-50 rounded-lg p-4 mb-6">
                                                     <div className="flex justify-between items-center mb-4">
                                                         <h4 className="font-bold text-green-800 flex items-center gap-2">
@@ -1131,7 +1133,7 @@ const Dashboard = () => {
                                                 )}
 
                                                 {/* Coordinator/HOD View: Exemplar Submissions (in addition to grading panel if they teach) */}
-                                                {(selectedCourse.coordinator_id === user.id || user.role === 'hod' || user.role === 'admin') && (
+                                                {(selectedCourse.coordinators?.some(c => c.id === user.id) || user.role === 'hod' || user.role === 'admin') && (
                                                     <ExemplarPanel
                                                         exemplarSubmissions={exemplarSubmissions}
                                                         onDownloadSubmission={handleDownloadSubmission}

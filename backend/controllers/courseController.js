@@ -35,48 +35,64 @@ exports.createCourse = asyncHandler(async (req, res) => {
 
 exports.getCourses = asyncHandler(async (req, res) => {
     let courses;
-    const includeCoordinator = { model: User, as: 'coordinator', attributes: ['id', 'name', 'email', 'phone_number'] };
+    // FETCH COORDINATORS (Multiple)
+    const includeCoordinators = {
+        model: User,
+        as: 'coordinators',
+        attributes: ['id', 'name', 'email', 'phone_number'],
+        through: { attributes: [] } // Don't include junction table data
+    };
 
     if (req.user.role === 'faculty') {
         const { Op } = require('sequelize');
         const CourseSection = require('../models/courseSectionModel');
 
-        // 1. Get courses where user is creator or coordinator
+        // 1. Get courses where user is creator or coordinator (using new association)
         const directCourses = await Course.findAll({
             where: {
-                [Op.or]: [
-                    { faculty_id: req.user.id },
-                    { coordinator_id: req.user.id }
-                ]
+                faculty_id: req.user.id
             },
-            include: [includeCoordinator]
+            include: [includeCoordinators]
         });
+
+        // Also fetch where user is ONE of the coordinators
+        const coordinatedCourses = await Course.findAll({
+            include: [{
+                model: User,
+                as: 'coordinators',
+                where: { id: req.user.id },
+                attributes: ['id', 'name', 'email', 'phone_number'],
+                through: { attributes: [] }
+            }]
+        });
+
+        // Merge logic (simplified)
+        const allDirect = [...directCourses, ...coordinatedCourses];
 
         // 2. Get courses where user is a section instructor
         const sectionAssignments = await CourseSection.findAll({
             where: { instructor_id: req.user.id },
-            include: [{ model: Course, as: 'course', include: [includeCoordinator] }]
+            include: [{ model: Course, as: 'course', include: [includeCoordinators] }]
         });
 
         // 3. Merge and Deduplicate
         const courseMap = new Map();
-        directCourses.forEach(c => courseMap.set(c.id, c));
+        allDirect.forEach(c => courseMap.set(c.id, c));
         sectionAssignments.forEach(sa => {
             if (sa.course) courseMap.set(sa.course.id, sa.course);
         });
 
-        // 4. Enrich with section info if faculty teaches a section
+        // 4. Enrich with section info
         const enrichedCourses = Array.from(courseMap.values()).map(course => {
             const cJson = course.toJSON();
-            // Find if this faculty teaches a section in this course
+            // Re-attach coordinators if lost during merge (sequelize instances keep them, but best to be sure)
+
             const mySection = sectionAssignments.find(sa => sa.course_id === course.id);
             if (mySection) {
                 cJson.my_section = mySection.section;
                 cJson.my_instructor = {
                     id: req.user.id,
-                    name: req.user.name,
-                    email: req.user.email,
-                    phone_number: req.user.phone_number
+                    name: req.user.name
                 };
             }
             return cJson;
@@ -87,30 +103,26 @@ exports.getCourses = asyncHandler(async (req, res) => {
         const Enrollment = require('../models/enrollmentModel');
         const CourseSection = require('../models/courseSectionModel');
 
-        // Fetch Enrollments with Section Info
         const enrollments = await Enrollment.findAll({
             where: { student_id: req.user.id }
         });
 
-        // For each enrollment, get course AND section info
         const courseData = [];
         for (const enrollment of enrollments) {
             const course = await Course.findByPk(enrollment.course_id, {
-                include: [includeCoordinator]
+                include: [includeCoordinators]
             });
 
             if (course) {
-                // Find the section instructor
                 let instructor = null;
                 if (enrollment.section) {
                     const sectionData = await CourseSection.findOne({
                         where: { course_id: course.id, section: enrollment.section },
-                        include: [{ model: User, as: 'instructor', attributes: ['id', 'name', 'email', 'phone_number'] }]
+                        include: [{ model: User, as: 'instructor', attributes: ['id', 'name'] }]
                     });
                     if (sectionData) instructor = sectionData.instructor;
                 }
 
-                // Convert to JSON and attach info
                 const cJson = course.toJSON();
                 cJson.my_section = enrollment.section;
                 cJson.my_instructor = instructor;
@@ -122,7 +134,7 @@ exports.getCourses = asyncHandler(async (req, res) => {
     } else {
         // Admin/HOD
         courses = await Course.findAll({
-            include: [includeCoordinator]
+            include: [includeCoordinators]
         });
     }
     res.json(courses);
