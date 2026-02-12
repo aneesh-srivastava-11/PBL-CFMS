@@ -2,7 +2,7 @@ import { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { auth } from '../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail } from 'firebase/auth';
 
 import bgImage from '../assets/image.png';
 import mujLogo from '../assets/Manipal_University_Jaipur_logo.png';
@@ -12,6 +12,7 @@ const Login = () => {
     const { login, user } = useContext(AuthContext);
     const navigate = useNavigate();
     const [isLogin, setIsLogin] = useState(true);
+    const [isForgotPassword, setIsForgotPassword] = useState(false);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -36,6 +37,13 @@ const Login = () => {
 
             if (!isFaculty && !isStudent) {
                 setError(`Invalid Email Domain. Must be ${facultyDomain} or ${studentDomain}`);
+                return;
+            }
+
+            // Handle Forgot Password
+            if (isForgotPassword) {
+                await sendPasswordResetEmail(auth, email);
+                setError('Password reset email sent! Check your inbox.');
                 return;
             }
 
@@ -98,13 +106,16 @@ const Login = () => {
                 </div>
 
                 <h2 className="text-3xl font-bold mb-2 text-center text-orange-600">
-                    {isLogin ? 'Welcome Back' : 'Join Us'}
+                    {isForgotPassword ? 'Reset Password' : (isLogin ? 'Welcome Back' : 'Join Us')}
                 </h2>
                 <p className="text-center text-gray-500 mb-8 text-sm">
-                    {isLogin ? 'Enter your credentials to access the portal' : 'Create your account to get started'}
+                    {isForgotPassword
+                        ? 'Enter your email to receive a reset link'
+                        : (isLogin ? 'Enter your credentials to access the portal' : 'Create your account to get started')
+                    }
                 </p>
 
-                {!isLogin && (
+                {!isLogin && !isForgotPassword && (
                     <div className="mb-4">
                         <input
                             type="text"
@@ -128,19 +139,34 @@ const Login = () => {
                     />
                 </div>
 
-                <div className="mb-6">
-                    <input
-                        type="password"
-                        placeholder="Password"
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-                </div>
+                {!isForgotPassword && (
+                    <div className="mb-6">
+                        <input
+                            type="password"
+                            placeholder="Password"
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                        />
+                    </div>
+                )}
+
+                {/* Forgot Password Link */}
+                {isLogin && !isForgotPassword && (
+                    <div className="flex justify-end mb-6 -mt-4">
+                        <button
+                            type="button"
+                            onClick={() => { setIsForgotPassword(true); setError(''); }}
+                            className="text-sm text-orange-600 hover:text-orange-800 hover:underline transition-colors"
+                        >
+                            Forgot Password?
+                        </button>
+                    </div>
+                )}
 
                 {error && (
-                    <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 text-sm rounded">
+                    <div className={`mb-4 p-3 ${error.includes('sent') ? 'bg-green-100 border-green-500 text-green-700' : 'bg-red-100 border-red-500 text-red-700'} border-l-4 text-sm rounded`}>
                         <p>{error}</p>
                     </div>
                 )}
@@ -149,20 +175,33 @@ const Login = () => {
                     type="submit"
                     className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
                 >
-                    {isLogin ? 'Sign In' : 'Create Account'}
+                    {isForgotPassword ? 'Send Reset Link' : (isLogin ? 'Sign In' : 'Create Account')}
                 </button>
 
                 <div className="mt-8 text-center border-t border-gray-200 pt-6">
-                    <p className="text-sm text-gray-600">
-                        {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-                        <button
-                            type="button"
-                            onClick={() => setIsLogin(!isLogin)}
-                            className="text-orange-600 font-semibold hover:text-orange-700 hover:underline transition-colors"
-                        >
-                            {isLogin ? 'Sign up' : 'Login'}
-                        </button>
-                    </p>
+                    {isForgotPassword ? (
+                        <p className="text-sm text-gray-600">
+                            Remember your password?{' '}
+                            <button
+                                type="button"
+                                onClick={() => { setIsForgotPassword(false); setIsLogin(true); setError(''); }}
+                                className="text-orange-600 font-semibold hover:text-orange-700 hover:underline transition-colors"
+                            >
+                                Back to Login
+                            </button>
+                        </p>
+                    ) : (
+                        <p className="text-sm text-gray-600">
+                            {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+                            <button
+                                type="button"
+                                onClick={() => setIsLogin(!isLogin)}
+                                className="text-orange-600 font-semibold hover:text-orange-700 hover:underline transition-colors"
+                            >
+                                {isLogin ? 'Sign up' : 'Login'}
+                            </button>
+                        </p>
+                    )}
                 </div>
             </form>
         </div>
