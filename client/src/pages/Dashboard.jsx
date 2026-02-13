@@ -711,7 +711,7 @@ const Dashboard = () => {
                             </div>
 
                             {/* Add Course Button (HOD Only) */}
-                            {(user.role === 'hod' || user.role === 'admin') && (
+                            {['hod', 'admin'].includes(user.role?.toLowerCase()) && (
                                 <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-lg">
                                     <h4 className="text-sm font-semibold mb-2 text-gray-600">Add New Course</h4>
                                     <form onSubmit={handleCreateCourse} className="space-y-2">
@@ -725,19 +725,54 @@ const Dashboard = () => {
                                         <button type="submit" className="w-full bg-orange-600 text-white text-sm font-medium py-2 rounded hover:bg-orange-700 transition">Add Course</button>
                                     </form>
                                     {/* HOD Hint */}
-                                    {(user.role === 'hod' || user.role === 'admin') && <p className="text-xs text-gray-400 mt-2 text-center">As HOD, you are the default creator.</p>}
+                                    {['hod', 'admin'].includes(user.role?.toLowerCase()) && <p className="text-xs text-gray-400 mt-2 text-center">As HOD, you are the default creator.</p>}
                                 </div>
                             )}
 
-                            {/* HOD Bulk Actions */}
-                            {(user.role === 'hod' || user.role === 'admin') && (
+                            {/* HOD Actions: Bulk & Single */}
+                            {['hod', 'admin'].includes(user.role?.toLowerCase()) && (
                                 <div className="p-4 mt-4 border-t border-gray-200 bg-purple-50 rounded-lg mx-2 mb-4">
-                                    <h4 className="text-sm font-bold text-purple-800 mb-2">HOD Bulk Actions</h4>
+                                    <h4 className="text-sm font-bold text-purple-800 mb-2">HOD User Management</h4>
 
                                     <div className="space-y-4">
+                                        {/* Single User Add */}
+                                        <div className="bg-white p-2 rounded border border-purple-100">
+                                            <h5 className="text-xs font-semibold text-purple-700 mb-1">Add Single User</h5>
+                                            <form onSubmit={async (e) => {
+                                                e.preventDefault();
+                                                const formData = new FormData(e.target);
+                                                const userData = Object.fromEntries(formData.entries());
+                                                try {
+                                                    const config = { headers: { Authorization: `Bearer ${user.token}` } };
+                                                    await axios.post(`${apiUrl}/api/hod/users`, userData, config);
+                                                    alert(`User ${userData.name} created!`);
+                                                    e.target.reset();
+                                                    if (userData.role === 'faculty') fetchFaculties();
+                                                } catch (err) {
+                                                    alert(err.response?.data?.message || 'Failed to create user');
+                                                }
+                                            }} className="space-y-2">
+                                                <input name="name" placeholder="Name" className="w-full text-xs p-1 border rounded" required />
+                                                <input name="email" type="email" placeholder="Email (@muj / @jaipur)" className="w-full text-xs p-1 border rounded" required />
+                                                <div className="flex gap-2">
+                                                    <select name="role" className="text-xs p-1 border rounded flex-1">
+                                                        <option value="student">Student</option>
+                                                        <option value="faculty">Faculty</option>
+                                                    </select>
+                                                    <input name="phone_number" placeholder="Phone" className="text-xs p-1 border rounded flex-1" />
+                                                </div>
+                                                {/* Fields for Student */}
+                                                <div className="flex gap-2">
+                                                    <input name="section" placeholder="Section (Student)" className="text-xs p-1 border rounded flex-1" />
+                                                    <input name="academic_semester" placeholder="Semester" className="text-xs p-1 border rounded flex-1" />
+                                                </div>
+                                                <button type="submit" className="w-full bg-purple-600 text-white text-xs py-1 rounded hover:bg-purple-700">Create User</button>
+                                            </form>
+                                        </div>
+
                                         {/* Bulk Faculty */}
                                         <form onSubmit={(e) => handleBulkUpload(e, 'faculty')} className="space-y-1">
-                                            <label className="text-xs font-semibold text-purple-700">Add Faculties (Excel)</label>
+                                            <label className="text-xs font-semibold text-purple-700">Bulk Faculties (Excel)</label>
                                             <div className="flex gap-2">
                                                 <input type="file" name="file" accept=".xlsx,.xls" className="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-purple-200 file:text-purple-700 hover:file:bg-purple-300" required />
                                                 <button type="submit" className="bg-purple-600 text-white text-xs px-2 py-1 rounded hover:bg-purple-700">Upload</button>
@@ -746,7 +781,7 @@ const Dashboard = () => {
 
                                         {/* Bulk Student */}
                                         <form onSubmit={(e) => handleBulkUpload(e, 'student')} className="space-y-1">
-                                            <label className="text-xs font-semibold text-purple-700">Add Students (Excel)</label>
+                                            <label className="text-xs font-semibold text-purple-700">Bulk Students (Excel)</label>
                                             <div className="flex gap-2">
                                                 <input type="file" name="file" accept=".xlsx,.xls" className="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-purple-200 file:text-purple-700 hover:file:bg-purple-300" required />
                                                 <button type="submit" className="bg-purple-600 text-white text-xs px-2 py-1 rounded hover:bg-purple-700">Upload</button>
@@ -754,7 +789,7 @@ const Dashboard = () => {
                                         </form>
                                     </div>
 
-                                    {/* NEW: View Lists */}
+                                    {/* View Lists */}
                                     <div className="mt-4 pt-4 border-t border-purple-200 flex gap-2">
                                         <button
                                             onClick={() => navigate('/hod/faculties')}
