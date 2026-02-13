@@ -8,13 +8,15 @@ const {
     markExemplar,
     getExemplarSubmissions,
     downloadSubmission,
-    toggleFeaturedExemplar
+    toggleFeaturedExemplar,
+    getSubmissionUploadUrl // Added
 } = require('../controllers/submissionController');
 const { protect } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware'); // Use centralized upload config
 
 
 // Student routes
+router.post('/:fileId/presigned-url', protect, getSubmissionUploadUrl); // New route
 router.post('/:fileId', protect, upload.single('file'), uploadSubmission);
 router.get('/my', protect, getMySubmissions);
 

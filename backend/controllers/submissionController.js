@@ -1,4 +1,4 @@
-const { uploadFile, getFileStream, deleteFile } = require('../utils/s3');
+const { uploadFile, getFileStream, deleteFile, getPresignedUploadUrl } = require('../utils/s3');
 const fs = require('fs');
 const util = require('util');
 const path = require('path');
@@ -7,12 +7,58 @@ const unlinkFile = util.promisify(fs.unlink);
 const { StudentSubmission, File, Course, Enrollment, CourseSection, User } = require('../models');
 const { Op } = require('sequelize');
 
+// Generate Presigned URL for Direct Upload
+exports.getSubmissionUploadUrl = async (req, res) => {
+    const { fileId } = req.params;
+    const { filename, fileType } = req.body;
+
+    try {
+        if (!process.env.AWS_BUCKET_NAME) {
+            return res.status(400).json({ message: 'S3 storage is not configured.' });
+        }
+
+        // 1. Validate assignment exists
+        const assignmentFile = await File.findByPk(fileId);
+        if (!assignmentFile || assignmentFile.file_type !== 'assignment') {
+            return res.status(404).json({ message: 'Assignment not found' });
+        }
+
+        // 2. Validate enrollment
+        const enrollment = await Enrollment.findOne({
+            where: {
+                student_id: req.user.id,
+                course_id: assignmentFile.course_id
+            }
+        });
+        if (!enrollment) return res.status(403).json({ message: 'Not enrolled' });
+
+        // 3. Check deadlines
+        if (!assignmentFile.submissions_enabled) return res.status(403).json({ message: 'Submissions closed' });
+        if (assignmentFile.submission_deadline && new Date() > new Date(assignmentFile.submission_deadline)) {
+            return res.status(403).json({ message: 'Deadline passed' });
+        }
+
+        // 4. Generate URL
+        const key = `submissions/${fileId}/${req.user.id}-${Date.now()}-${filename}`;
+        const uploadUrl = await getPresignedUploadUrl(key, fileType);
+
+        res.json({ uploadUrl, key });
+    } catch (error) {
+        console.error('Presigned URL Error:', error);
+        res.status(500).json({ message: 'Failed to generate upload URL' });
+    }
+};
+
 // Student uploads assignment solution
 exports.uploadSubmission = async (req, res) => {
     const file = req.file;
     const { fileId } = req.params; // Assignment file ID
+    const { s3_key: preUploadedKey, filename: preUploadedFilename } = req.body; // For presigned uploads
 
-    if (!file) {
+    console.log(`[DEBUG] Uploading submission: User ${req.user.id}, FileId ${fileId}`);
+
+    if (!file && !preUploadedKey) {
+        console.error('[DEBUG] No file received in req.file and no preUploadedKey');
         return res.status(400).json({ message: 'No file uploaded' });
     }
 
@@ -20,10 +66,12 @@ exports.uploadSubmission = async (req, res) => {
         // 1. Validate assignment exists and is of type 'assignment'
         const assignmentFile = await File.findByPk(fileId);
         if (!assignmentFile) {
+            console.error(`[DEBUG] Assignment ${fileId} not found`);
             return res.status(404).json({ message: 'Assignment not found' });
         }
 
         if (assignmentFile.file_type !== 'assignment') {
+            console.error(`[DEBUG] File ${fileId} is not an assignment (Type: ${assignmentFile.file_type})`);
             return res.status(400).json({ message: 'This file is not an assignment' });
         }
 
@@ -36,6 +84,7 @@ exports.uploadSubmission = async (req, res) => {
         });
 
         if (!enrollment) {
+            console.error(`[DEBUG] User ${req.user.id} not enrolled in course ${assignmentFile.course_id}`);
             return res.status(403).json({ message: 'You are not enrolled in this course' });
         }
 
@@ -58,20 +107,35 @@ exports.uploadSubmission = async (req, res) => {
         });
 
         if (existingSubmission) {
+            console.error(`[DEBUG] Duplicate submission for file ${fileId} by user ${req.user.id}`);
             return res.status(400).json({ message: 'You have already submitted for this assignment' });
         }
 
-        // 6. Upload to S3
-        let s3Key = file.filename;
-        let location = `/uploads/${file.filename}`;
+        // 6. Upload to S3 (If not already uploaded via presigned URL)
+        let s3Key = preUploadedKey || (file ? file.filename : null);
+        let location = preUploadedKey ? `/uploads/${preUploadedFilename}` : `/uploads/${file.filename}`;
 
-        if (process.env.AWS_BUCKET_NAME) {
-            const result = await uploadFile(file);
-            try {
-                await unlinkFile(file.path);
-            } catch (e) { console.error('Error deleting temp file', e); }
-            s3Key = result.Key;
-            location = result.Location;
+        if (!preUploadedKey && file) {
+            // Traditional upload flow
+            s3Key = file.filename;
+            if (process.env.AWS_BUCKET_NAME) {
+                console.log('[DEBUG] Uploading to S3...');
+                try {
+                    const result = await uploadFile(file);
+                    s3Key = result.Key;
+                    location = result.Location;
+                    try {
+                        await unlinkFile(file.path);
+                    } catch (e) { console.error('Error deleting temp file', e); }
+                } catch (s3Error) {
+                    console.error('[DEBUG] S3 Upload Failed:', s3Error);
+                    throw s3Error;
+                }
+            } else {
+                console.log('[DEBUG] Local upload (No S3 configured)');
+            }
+        } else {
+            console.log(`[DEBUG] Using pre-uploaded S3 Key: ${s3Key}`);
         }
 
         // 7. Create submission record
@@ -80,9 +144,11 @@ exports.uploadSubmission = async (req, res) => {
             student_id: req.user.id,
             course_id: assignmentFile.course_id,
             s3_key: s3Key,
-            filename: file.originalname,
+            filename: preUploadedFilename || file.originalname,
             submitted_at: new Date()
         });
+
+        console.log(`[DEBUG] Submission created: ID ${submission.id}`);
 
         res.json({
             message: 'Submission uploaded successfully',
@@ -90,7 +156,7 @@ exports.uploadSubmission = async (req, res) => {
             location
         });
     } catch (error) {
-        console.error(error);
+        console.error('[DEBUG] Upload Submission Error:', error);
         res.status(500).json({ message: 'Error uploading submission' });
     }
 };

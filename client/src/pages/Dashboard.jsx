@@ -513,6 +513,7 @@ const Dashboard = () => {
     };
 
     // Student: Upload submission
+    // Student: Upload submission (Presigned URL Flow for Vercel 4.5MB limit)
     const handleUploadSubmission = async (e, assignmentId) => {
         e.preventDefault();
         if (!submissionFile) {
@@ -520,16 +521,58 @@ const Dashboard = () => {
             return;
         }
         setSubmissionUploading(true);
-        const formData = new FormData();
-        formData.append('file', submissionFile);
         try {
-            const config = {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    Authorization: `Bearer ${user.token}`
-                }
-            };
-            await axios.post(`${apiUrl}/api/submissions/${assignmentId}`, formData, config);
+            const authConfig = { headers: { Authorization: `Bearer ${user.token}` } };
+
+            // 1. Get Presigned URL
+            let uploadData;
+            try {
+                const { data } = await axios.post(
+                    `${apiUrl}/api/submissions/${assignmentId}/presigned-url`,
+                    {
+                        filename: submissionFile.name,
+                        fileType: submissionFile.type
+                    },
+                    authConfig
+                );
+                uploadData = data;
+                console.log('Presigned URL received');
+            } catch (err) {
+                // Fallback for local dev/no-S3
+                console.log('Presigned URL failed, trying direct upload (Limit 4.5MB on Vercel)', err);
+            }
+
+            if (uploadData && uploadData.uploadUrl) {
+                // 2. Upload to S3 directly
+                console.log('Uploading to S3...');
+                await axios.put(uploadData.uploadUrl, submissionFile, {
+                    headers: { 'Content-Type': submissionFile.type }
+                });
+                console.log('S3 Upload Complete');
+
+                // 3. Confirm Submission
+                await axios.post(
+                    `${apiUrl}/api/submissions/${assignmentId}`,
+                    {
+                        s3_key: uploadData.key,
+                        filename: submissionFile.name
+                    },
+                    authConfig
+                );
+
+            } else {
+                // Fallback: Upload via Server (Old Method)
+                const formData = new FormData();
+                formData.append('file', submissionFile);
+                const config = {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                        Authorization: `Bearer ${user.token}`
+                    }
+                };
+                await axios.post(`${apiUrl}/api/submissions/${assignmentId}`, formData, config);
+            }
+
             alert('Submission uploaded successfully!');
             setSubmissionFile(null);
             fetchMySubmissions();
