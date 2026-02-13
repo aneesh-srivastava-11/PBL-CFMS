@@ -64,7 +64,7 @@ const GradingPanel = ({
 
                             {/* Control Panel */}
                             <div className="bg-blue-50 rounded p-3 mb-3">
-                                <div className="flex gap-2 items-end">
+                                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
                                     <div className="flex-1">
                                         <label className="text-xs font-semibold text-blue-800 mb-1 block">
                                             Submission Deadline
@@ -86,8 +86,8 @@ const GradingPanel = ({
                                             controlForm[assignment.id]?.deadline
                                         )}
                                         className={`px-3 py-2 rounded text-xs font-bold ${assignment.submissions_enabled
-                                                ? 'bg-red-600 hover:bg-red-700 text-white'
-                                                : 'bg-green-600 hover:bg-green-700 text-white'
+                                            ? 'bg-red-600 hover:bg-red-700 text-white'
+                                            : 'bg-green-600 hover:bg-green-700 text-white'
                                             }`}
                                     >
                                         {assignment.submissions_enabled ? 'Close' : 'Open'} Submissions
@@ -130,8 +130,8 @@ const GradingPanel = ({
                                         </div>
                                         {sub.exemplar_type && (
                                             <span className={`text-xs px-2 py-1 rounded font-bold ${sub.exemplar_type === 'best' ? 'bg-yellow-100 text-yellow-800' :
-                                                    sub.exemplar_type === 'average' ? 'bg-blue-100 text-blue-800' :
-                                                        'bg-gray-100 text-gray-800'
+                                                sub.exemplar_type === 'average' ? 'bg-blue-100 text-blue-800' :
+                                                    'bg-gray-100 text-gray-800'
                                                 }`}>
                                                 <Award size={12} className="inline mr-1" />
                                                 {sub.exemplar_type.toUpperCase()}
@@ -139,7 +139,7 @@ const GradingPanel = ({
                                         )}
                                     </div>
 
-                                    <div className="flex gap-2 items-end mb-3">
+                                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end mb-3">
                                         {gradingId === sub.id ? (
                                             <>
                                                 <div className="flex-1">
@@ -204,8 +204,8 @@ const GradingPanel = ({
                                         <button
                                             onClick={() => onMarkExemplar(sub.id, sub.exemplar_type === 'best' ? null : 'best')}
                                             className={`text-xs px-3 py-1 rounded flex items-center gap-1 ${sub.exemplar_type === 'best'
-                                                    ? 'bg-yellow-200 text-yellow-900 hover:bg-yellow-300'
-                                                    : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                                                ? 'bg-yellow-200 text-yellow-900 hover:bg-yellow-300'
+                                                : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
                                                 }`}
                                         >
                                             <Award size={12} />
@@ -214,8 +214,8 @@ const GradingPanel = ({
                                         <button
                                             onClick={() => onMarkExemplar(sub.id, sub.exemplar_type === 'average' ? null : 'average')}
                                             className={`text-xs px-3 py-1 rounded flex items-center gap-1 ${sub.exemplar_type === 'average'
-                                                    ? 'bg-blue-200 text-blue-900 hover:bg-blue-300'
-                                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                                ? 'bg-blue-200 text-blue-900 hover:bg-blue-300'
+                                                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                                                 }`}
                                         >
                                             <Award size={12} />
@@ -224,8 +224,8 @@ const GradingPanel = ({
                                         <button
                                             onClick={() => onMarkExemplar(sub.id, sub.exemplar_type === 'poor' ? null : 'poor')}
                                             className={`text-xs px-3 py-1 rounded flex items-center gap-1 ${sub.exemplar_type === 'poor'
-                                                    ? 'bg-gray-300 text-gray-900 hover:bg-gray-400'
-                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                ? 'bg-gray-300 text-gray-900 hover:bg-gray-400'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                                 }`}
                                         >
                                             <Award size={12} />

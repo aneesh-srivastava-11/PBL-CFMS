@@ -56,6 +56,7 @@ const Dashboard = () => {
     const [faculties, setFaculties] = useState([]);
     const [sections, setSections] = useState([]);
     const [instructorForm, setInstructorForm] = useState({ instructorId: '', section: '' });
+    const [coordinatorId, setCoordinatorId] = useState(''); // New state for coordinator assignment
 
     const requiredTypes = [
         'handout', 'attendance', 'assignment', 'marks',
@@ -194,15 +195,32 @@ const Dashboard = () => {
         }
     };
 
-    const handleAssignCoordinator = async (courseId, facultyId) => {
+    const handleAssignCoordinator = async (e) => {
+        e.preventDefault();
+        if (!coordinatorId) {
+            alert('Please select a faculty member first.');
+            return;
+        }
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.put(`${apiUrl}/api/hod/courses/${courseId}/coordinator`, { facultyId }, config);
+            await axios.put(`${apiUrl}/api/hod/courses/${selectedCourse.id}/coordinator`, { facultyId: coordinatorId }, config);
+
             alert('Coordinator assigned successfully');
-            fetchCourses(); // Refresh to update coordinator info potentially
+
+            // Update local state immediately for UI feedback
+            const faculty = faculties.find(f => f.id === parseInt(coordinatorId));
+            if (faculty && selectedCourse) {
+                setSelectedCourse(prev => ({
+                    ...prev,
+                    coordinators: [...(prev.coordinators || []), faculty]
+                }));
+            }
+
+            setCoordinatorId(''); // Reset selection
+            fetchCourses(); // Refresh global list
         } catch (error) {
             console.error(error);
-            alert('Failed to assign coordinator');
+            alert(error.response?.data?.message || 'Failed to assign coordinator');
         }
     };
 
@@ -869,18 +887,24 @@ const Dashboard = () => {
                                         {(user.role === 'hod' || user.role === 'admin') && (
                                             <div className="bg-purple-50 border border-purple-200 rounded p-4">
                                                 <h4 className="text-sm font-bold text-purple-800 mb-2 uppercase tracking-wide">Add Coordinator</h4>
-                                                <div className="flex gap-2">
+                                                <form onSubmit={handleAssignCoordinator} className="flex gap-2">
                                                     <select
                                                         className="flex-1 text-sm border-gray-300 rounded p-2"
-                                                        onChange={(e) => handleAssignCoordinator(selectedCourse.id, e.target.value)}
-                                                        defaultValue=""
+                                                        value={coordinatorId}
+                                                        onChange={(e) => setCoordinatorId(e.target.value)}
                                                     >
-                                                        <option value="" disabled>Select Faculty to Add</option>
+                                                        <option value="">Select Faculty to Add</option>
                                                         {faculties.map(f => (
                                                             <option key={f.id} value={f.id}>{f.name} ({f.email})</option>
                                                         ))}
                                                     </select>
-                                                </div>
+                                                    <button
+                                                        type="submit"
+                                                        className="bg-purple-600 text-white text-xs px-3 py-2 rounded hover:bg-purple-700 font-medium"
+                                                    >
+                                                        Add
+                                                    </button>
+                                                </form>
                                                 <p className="text-xs text-purple-600 mt-1">Current: {selectedCourse.coordinators?.map(c => c.name).join(', ') || 'None'}</p>
                                             </div>
                                         )}
@@ -1022,7 +1046,7 @@ const Dashboard = () => {
 
                                                     {/* Enrolled Student List Table */}
                                                     {enrolledStudents.length > 0 && (
-                                                        <div className="mt-4 max-h-60 overflow-y-auto border border-gray-200 rounded">
+                                                        <div className="mt-4 max-h-60 overflow-y-auto overflow-x-auto border border-gray-200 rounded">
                                                             <table className="w-full text-sm text-left">
                                                                 <thead className="bg-gray-100 text-gray-600 font-semibold sticky top-0">
                                                                     <tr>

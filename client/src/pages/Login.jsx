@@ -99,7 +99,7 @@ const Login = () => {
             {/* Glassmorphism Card */}
             <form
                 onSubmit={handleSubmit}
-                className="relative z-10 bg-white/90 backdrop-blur-md p-10 rounded-2xl shadow-2xl w-full max-w-md border border-white/20"
+                className="relative z-10 bg-white/90 backdrop-blur-md p-6 md:p-10 rounded-2xl shadow-2xl w-full max-w-md border border-white/20"
             >
                 <div className="flex justify-center mb-6">
                     <img src={mujLogo} alt="MUJ Logo" className="h-20 drop-shadow-md" />

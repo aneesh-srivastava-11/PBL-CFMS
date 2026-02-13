@@ -36,6 +36,8 @@ exports.assignCoordinator = asyncHandler(async (req, res) => {
     const { courseId } = req.params;
     const { facultyId } = req.body;
 
+    logger.info(`[HOD] Assigning Coordinator: Course ${courseId}, Faculty ${facultyId}`);
+
     const course = await Course.findByPk(courseId);
     if (!course) {
         res.status(404);
@@ -45,20 +47,31 @@ exports.assignCoordinator = asyncHandler(async (req, res) => {
     const faculty = await User.findByPk(facultyId);
     if (!faculty || faculty.role !== 'faculty') {
         res.status(400);
-        throw new Error('Invalid Faculty ID');
+        throw new Error('Invalid Faculty ID or not a faculty member');
     }
 
-    // Use Sequelize 'add' method for Many-to-Many
-    // course.addCoordinator(faculty)
-    // Note: The alias in models/index.js is 'coordinators'
-    await course.addCoordinator(faculty);
+    try {
+        // Use Sequelize 'add' method for Many-to-Many
+        // Alias is 'coordinators' -> addCoordinator or addCoordinators
+        // Trying singular first, then plural if fails? No, sequelizes uses singular for hasMany/BelongsToMany usually
 
-    // Also update the faculty's status (is_coordinator flag on User model)
-    faculty.is_coordinator = true;
-    await faculty.save();
+        if (typeof course.addCoordinator !== 'function') {
+            logger.error(`[HOD] addCoordinator method missing on Course model. Available methods: ${Object.keys(course.__proto__)}`);
+            throw new Error('Internal Server Error: Association method missing');
+        }
 
-    logger.info(`[HOD] Added ${faculty.name} as coordinator for ${course.course_code}`);
-    res.json({ message: `Added ${faculty.name} as coordinator for ${course.course_code}` });
+        await course.addCoordinator(faculty);
+
+        // Also update the faculty's status (is_coordinator flag on User model)
+        faculty.is_coordinator = true;
+        await faculty.save();
+
+        logger.info(`[HOD] Added ${faculty.name} as coordinator for ${course.course_code}`);
+        res.json({ message: `Added ${faculty.name} as coordinator for ${course.course_code}` });
+    } catch (error) {
+        logger.error(`[HOD] Assignment Failed: ${error.message}`);
+        res.status(500).json({ message: `Assignment failed: ${error.message}` });
+    }
 });
 
 // @desc    Get All Faculties (Use to select coordinator)

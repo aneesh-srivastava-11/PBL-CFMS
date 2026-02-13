@@ -73,19 +73,19 @@ const UserList = ({ type }) => {
                     <div className="bg-white rounded-lg shadow-sm p-6 min-h-[500px]">
 
                         {/* Header */}
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-4">
+                        <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
+                            <div className="flex items-center gap-4 w-full md:w-auto">
                                 <button onClick={() => navigate('/')} className="p-2 hover:bg-gray-100 rounded-full">
                                     <ArrowLeft size={20} />
                                 </button>
                                 <h2 className="text-xl font-bold text-gray-800 border-l-4 border-purple-600 pl-3">{title}</h2>
                             </div>
-                            <div className="relative">
+                            <div className="relative w-full md:w-auto">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                                 <input
                                     type="text"
                                     placeholder="Search name or email..."
-                                    className="pl-9 pr-4 py-2 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-64"
+                                    className="pl-9 pr-4 py-2 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-full md:w-64"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                 />

@@ -101,7 +101,7 @@ const AssignmentSubmissions = ({
                                 </div>
                             ) : canSubmit ? (
                                 <form onSubmit={(e) => onUploadSubmission(e, assignment.id)} className="mt-3">
-                                    <div className="flex gap-2 items-end">
+                                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
                                         <div className="flex-1">
                                             <label className="text-xs font-semibold text-gray-500 mb-1 block">
                                                 Upload Solution (PDF)
