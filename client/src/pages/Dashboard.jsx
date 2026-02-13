@@ -887,9 +887,9 @@ const Dashboard = () => {
                                         {(user.role === 'hod' || user.role === 'admin') && (
                                             <div className="bg-purple-50 border border-purple-200 rounded p-4">
                                                 <h4 className="text-sm font-bold text-purple-800 mb-2 uppercase tracking-wide">Add Coordinator</h4>
-                                                <form onSubmit={handleAssignCoordinator} className="flex gap-2">
+                                                <form onSubmit={handleAssignCoordinator} className="flex flex-col sm:flex-row gap-2">
                                                     <select
-                                                        className="flex-1 text-sm border-gray-300 rounded p-2"
+                                                        className="flex-1 w-full text-sm border-gray-300 rounded p-2"
                                                         value={coordinatorId}
                                                         onChange={(e) => setCoordinatorId(e.target.value)}
                                                     >
@@ -900,7 +900,7 @@ const Dashboard = () => {
                                                     </select>
                                                     <button
                                                         type="submit"
-                                                        className="bg-purple-600 text-white text-xs px-3 py-2 rounded hover:bg-purple-700 font-medium"
+                                                        className="w-full sm:w-auto bg-purple-600 text-white text-xs px-4 py-2 rounded hover:bg-purple-700 font-medium whitespace-nowrap"
                                                     >
                                                         Add
                                                     </button>
