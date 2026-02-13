@@ -88,9 +88,9 @@ const Dashboard = () => {
         if (selectedCourse) {
             fetchCourseFiles(selectedCourse.id);
 
-            // If Coordinator/HOD/Admin, fetch enrollment
+            // If Coordinator/HOD/Admin OR Faculty (Instructor), fetch enrollment
             const isCoord = selectedCourse.coordinators?.some(c => c.id === user.id);
-            if (user.is_coordinator || user.role === 'hod' || user.role === 'admin' || isCoord) {
+            if (user.role === 'faculty' || user.is_coordinator || user.role === 'hod' || user.role === 'admin' || isCoord) {
                 fetchEnrolledStudents(selectedCourse.id);
             }
 
@@ -957,25 +957,41 @@ const Dashboard = () => {
                                                         <label className="text-xs font-semibold text-gray-500 mb-1 block">File</label>
                                                         <input type="file" className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200" onChange={e => setFile(e.target.files[0])} required />
                                                     </div>
+
+                                                    {/* File Type Selector */}
                                                     <div className="w-full md:w-48">
                                                         <label className="text-xs font-semibold text-gray-500 mb-1 block">Type</label>
-                                                        <select className="w-full text-sm border-gray-300 rounded focus:border-orange-500 focus:ring-orange-500 p-2" value={fileType} onChange={e => setFileType(e.target.value)}>
-                                                            <option value="handout">Handout</option>
-                                                            <option value="attendance">Attendance</option>
-                                                            <option value="assignment">Assignment</option>
-                                                            <option value="marks">Marks</option>
-                                                            <option value="materials">Materials</option>
-                                                            <option value="academic_feedback">Academic Feedback</option>
-                                                            <option value="action_taken">Action Taken</option>
-                                                            <option value="exam_paper">Exam Paper</option>
-                                                            <option value="remedial">Remedial Assignment</option>
-                                                            <option value="case_study">Case Study</option>
-                                                            <option value="quiz">Quiz</option>
-                                                            <option value="quiz_solution">Quiz Solution</option>
-                                                            <option value="exam_solution">Exam Solution</option>
-                                                            <option value="assignment_solution">Assignment Solution</option>
-                                                            <option value="other">Others</option>
-                                                        </select>
+                                                        {user.role === 'faculty' && !selectedCourse.coordinators?.some(c => c.id === user.id) ? (
+                                                            // Restricted Instructor: Only Class Material
+                                                            <select
+                                                                className="w-full text-sm border-gray-300 rounded focus:border-orange-500 focus:ring-orange-500 p-2 bg-gray-100"
+                                                                value="class_material"
+                                                                onChange={() => setFileType('class_material')}
+                                                                disabled
+                                                            >
+                                                                <option value="class_material">Class Material</option>
+                                                            </select>
+                                                        ) : (
+                                                            // Admin/HOD/Coordinator: Full List
+                                                            <select className="w-full text-sm border-gray-300 rounded focus:border-orange-500 focus:ring-orange-500 p-2" value={fileType} onChange={e => setFileType(e.target.value)}>
+                                                                <option value="handout">Handout</option>
+                                                                <option value="class_material">Class Material</option>
+                                                                <option value="attendance">Attendance</option>
+                                                                <option value="assignment">Assignment</option>
+                                                                <option value="marks">Marks</option>
+                                                                <option value="materials">Materials</option>
+                                                                <option value="academic_feedback">Academic Feedback</option>
+                                                                <option value="action_taken">Action Taken</option>
+                                                                <option value="exam_paper">Exam Paper</option>
+                                                                <option value="remedial">Remedial Assignment</option>
+                                                                <option value="case_study">Case Study</option>
+                                                                <option value="quiz">Quiz</option>
+                                                                <option value="quiz_solution">Quiz Solution</option>
+                                                                <option value="exam_solution">Exam Solution</option>
+                                                                <option value="assignment_solution">Assignment Solution</option>
+                                                                <option value="other">Others</option>
+                                                            </select>
+                                                        )}
                                                     </div>
 
                                                     {/* Section Selector (Coordinator/HOD only) */}
@@ -994,13 +1010,16 @@ const Dashboard = () => {
                                                     <button type="submit" className="w-full md:w-auto bg-orange-600 text-white text-sm font-bold py-2 px-6 rounded hover:bg-orange-700 transition">Upload</button>
                                                 </form>
                                                 {uploadStatus && <p className="text-xs text-green-600 mt-2 font-medium">{uploadStatus}</p>}
+                                                {user.role === 'faculty' && !selectedCourse.coordinators?.some(c => c.id === user.id) && (
+                                                    <p className="text-xs text-orange-400 mt-2">Note: Instructors can only upload Class Materials for their section.</p>
+                                                )}
                                             </div>
                                         )}
 
                                         {/* Files List */}
                                         <div className="space-y-4">
-                                            {/* ENROLLMENT SECTION (Coordinator / HOD) */}
-                                            {(user.is_coordinator || selectedCourse.coordinators?.some(c => c.id === user.id) || user.role === 'hod' || user.role === 'admin') && (
+                                            {/* ENROLLMENT SECTION (Coordinator / HOD / Faculty - Read Only for Faculty) */}
+                                            {(user.role === 'faculty' || user.is_coordinator || selectedCourse.coordinators?.some(c => c.id === user.id) || user.role === 'hod' || user.role === 'admin') && (
                                                 <div className="border border-green-200 bg-green-50 rounded-lg p-4 mb-6">
                                                     <div className="flex justify-between items-center mb-4">
                                                         <h4 className="font-bold text-green-800 flex items-center gap-2">
@@ -1014,34 +1033,36 @@ const Dashboard = () => {
                                                         </button>
                                                     </div>
 
-                                                    {/* Quick Enroll */}
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        <div>
-                                                            <h5 className="text-xs font-semibold text-gray-500 mb-2">Single Enroll</h5>
-                                                            <form onSubmit={handleEnrollStudent} className="flex gap-2">
-                                                                <input className="flex-1 text-sm border border-gray-300 rounded p-2 focus:ring-green-500 focus:border-green-500" placeholder="Student Email" value={studentEmail} onChange={e => setStudentEmail(e.target.value)} required />
-                                                                <button type="submit" className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">Add</button>
-                                                            </form>
+                                                    {/* Quick Enroll - Only for Admin/HOD/Coordinator */}
+                                                    {(user.role === 'admin' || user.role === 'hod' || selectedCourse.coordinators?.some(c => c.id === user.id)) && (
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                            <div>
+                                                                <h5 className="text-xs font-semibold text-gray-500 mb-2">Single Enroll</h5>
+                                                                <form onSubmit={handleEnrollStudent} className="flex gap-2">
+                                                                    <input className="flex-1 text-sm border border-gray-300 rounded p-2 focus:ring-green-500 focus:border-green-500" placeholder="Student Email" value={studentEmail} onChange={e => setStudentEmail(e.target.value)} required />
+                                                                    <button type="submit" className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">Add</button>
+                                                                </form>
+                                                            </div>
+                                                            <div className="border-l border-green-200 pl-4">
+                                                                <h5 className="text-xs font-semibold text-gray-500 mb-2">Bulk Enroll</h5>
+                                                                <form onSubmit={async (e) => {
+                                                                    e.preventDefault();
+                                                                    const fileInput = e.target.elements.files;
+                                                                    if (!fileInput || !fileInput.files[0]) { alert('Please select a file'); return; }
+                                                                    const formData = new FormData();
+                                                                    formData.append('file', fileInput.files[0]);
+                                                                    try {
+                                                                        const config = { headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'multipart/form-data' } };
+                                                                        await axios.post(`${apiUrl}/api/enroll/${selectedCourse.id}/bulk`, formData, config);
+                                                                        alert('Uploaded!'); fetchEnrolledStudents(selectedCourse.id); e.target.reset();
+                                                                    } catch (err) { alert('Failed'); }
+                                                                }} className="flex gap-2">
+                                                                    <input type="file" name="files" accept=".xlsx, .xls" className="flex-1 text-sm text-gray-500" required />
+                                                                    <button type="submit" className="text-xs border border-green-600 text-green-700 px-3 py-1 rounded hover:bg-green-50">Upload Excel</button>
+                                                                </form>
+                                                            </div>
                                                         </div>
-                                                        <div className="border-l border-green-200 pl-4">
-                                                            <h5 className="text-xs font-semibold text-gray-500 mb-2">Bulk Enroll</h5>
-                                                            <form onSubmit={async (e) => {
-                                                                e.preventDefault();
-                                                                const fileInput = e.target.elements.files;
-                                                                if (!fileInput || !fileInput.files[0]) { alert('Please select a file'); return; }
-                                                                const formData = new FormData();
-                                                                formData.append('file', fileInput.files[0]);
-                                                                try {
-                                                                    const config = { headers: { 'Authorization': `Bearer ${user.token}`, 'Content-Type': 'multipart/form-data' } };
-                                                                    await axios.post(`${apiUrl}/api/enroll/${selectedCourse.id}/bulk`, formData, config);
-                                                                    alert('Uploaded!'); fetchEnrolledStudents(selectedCourse.id); e.target.reset();
-                                                                } catch (err) { alert('Failed'); }
-                                                            }} className="flex gap-2">
-                                                                <input type="file" name="files" accept=".xlsx, .xls" className="flex-1 text-sm text-gray-500" required />
-                                                                <button type="submit" className="text-xs border border-green-600 text-green-700 px-3 py-1 rounded hover:bg-green-50">Upload Excel</button>
-                                                            </form>
-                                                        </div>
-                                                    </div>
+                                                    )}
 
 
                                                     {/* Enrolled Student List Table */}
@@ -1071,13 +1092,17 @@ const Dashboard = () => {
                                                                                     {student.Enrollment?.section || '-'}
                                                                                 </td>
                                                                                 <td className="p-2 text-right flex justify-end gap-2">
-                                                                                    <button onClick={() => setStudentToEdit(student)} className="text-blue-500 hover:underline">Edit</button>
-                                                                                    <button
-                                                                                        onClick={() => handleDeleteEnrollment(student.id, student.name || student.email)}
-                                                                                        className="text-red-500 hover:text-red-700"
-                                                                                    >
-                                                                                        <Trash2 size={14} />
-                                                                                    </button>
+                                                                                    {(user.role === 'admin' || user.role === 'hod' || selectedCourse.coordinators?.some(c => c.id === user.id)) && (
+                                                                                        <>
+                                                                                            <button onClick={() => setStudentToEdit(student)} className="text-blue-500 hover:underline">Edit</button>
+                                                                                            <button
+                                                                                                onClick={() => handleDeleteEnrollment(student.id, student.name || student.email)}
+                                                                                                className="text-red-500 hover:text-red-700"
+                                                                                            >
+                                                                                                <Trash2 size={14} />
+                                                                                            </button>
+                                                                                        </>
+                                                                                    )}
                                                                                 </td>
                                                                             </tr>
                                                                         ))}

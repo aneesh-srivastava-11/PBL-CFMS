@@ -205,9 +205,12 @@ exports.bulkEnrollStudents = asyncHandler(async (req, res) => {
             throw new Error('Course not found');
         }
 
-        if (course.faculty_id !== req.user.id && req.user.role !== 'admin') {
+        // 0. Check Coordinator Status
+        const isCoordinator = (await course.countCoordinators({ where: { id: req.user.id } })) > 0;
+
+        if (course.faculty_id !== req.user.id && req.user.role !== 'admin' && !isCoordinator) {
             res.status(403);
-            throw new Error('Not authorized');
+            throw new Error('Not authorized to enroll students. Instructors cannot enroll students.');
         }
 
         const workbook = new ExcelJS.Workbook();

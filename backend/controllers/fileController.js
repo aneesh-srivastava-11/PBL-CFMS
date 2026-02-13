@@ -37,6 +37,11 @@ exports.uploadFileHandler = async (req, res) => {
                 return res.status(403).json({ message: 'You are not an instructor for this course.' });
             }
 
+            // NEW: Restrict Instructors to 'class_material' only
+            if (file_type !== 'class_material') {
+                return res.status(403).json({ message: 'Instructors can only upload Class Material.' });
+            }
+
             // Instructor force-assigned to their section
             targetSection = assignment.section;
         } else {
