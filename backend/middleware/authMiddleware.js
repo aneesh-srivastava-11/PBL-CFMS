@@ -16,7 +16,13 @@ const protect = async (req, res, next) => {
             logger.debug(`[DEBUG] Token verified for: ${req.user.email}`);
 
             // Attach internal user ID and Role from MySQL
-            const internalUser = await User.findOne({ where: { email: req.user.email } });
+            // Use case-insensitive search to ensure matching
+            const { Op } = require('sequelize');
+            const internalUser = await User.findOne({
+                where: {
+                    email: { [Op.iLike]: req.user.email }
+                }
+            });
             if (internalUser) {
                 req.user.id = internalUser.id;
                 req.user.role = internalUser.role;

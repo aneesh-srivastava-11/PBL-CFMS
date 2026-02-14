@@ -245,7 +245,13 @@ const Dashboard = () => {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('course_id', selectedCourse.id);
-        formData.append('file_type', fileType);
+
+        // Force 'class_material' for instructors (unless they are also coords)
+        const isCoord = selectedCourse.coordinators?.some(c => c.id === user.id);
+        const finalFileType = (user.role === 'faculty' && !isCoord) ? 'class_material' : fileType;
+
+        formData.append('file_type', finalFileType);
+
         if (targetSection) formData.append('section', targetSection);
 
         try {
@@ -260,7 +266,9 @@ const Dashboard = () => {
             setFile(null);
             fetchCourseFiles(selectedCourse.id);
         } catch (error) {
+            console.error('Upload Error:', error);
             setUploadStatus('Upload failed');
+            alert(error.response?.data?.message || 'Upload failed');
         }
     };
 

@@ -16,7 +16,7 @@ const File = sequelize.define('File', {
             'handout', 'attendance', 'assignment', 'marks',
             'academic_feedback', 'action_taken', 'exam_paper',
             'remedial', 'case_study', 'quiz', 'quiz_solution',
-            'exam_solution', 'assignment_solution', 'materials', 'other'
+            'exam_solution', 'assignment_solution', 'materials', 'class_material', 'other'
         ),
         allowNull: false
     },

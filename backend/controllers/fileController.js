@@ -8,7 +8,7 @@ const { File, Course, Enrollment, CourseSection, User } = require('../models');
 
 exports.uploadFileHandler = async (req, res) => {
     const file = req.file;
-    const { course_id, file_type, section } = req.body; // 'section' is optional from frontend
+    const { course_id, file_type, section } = req.body;
 
     if (!file) {
         return res.status(400).json({ message: 'No file uploaded' });
@@ -18,54 +18,66 @@ exports.uploadFileHandler = async (req, res) => {
         const course = await Course.findByPk(course_id);
         if (!course) return res.status(404).json({ message: 'Course not found' });
 
-        // Logic: Who can upload where?
-        let targetSection = null; // Default to Global
+        let targetSection = null;
+        let authorized = false;
 
+        // 1. Check Admin / HOD
         if (req.user.role === 'admin' || req.user.role === 'hod') {
-            // HOD/Admin can upload to any section or global
+            authorized = true;
             targetSection = section || null;
-        } else if ((await course.countCoordinators({ where: { id: req.user.id } })) > 0) {
-            // Coordinator can upload to any section or global
-            targetSection = section || null;
-        } else if (req.user.role === 'faculty') {
-            // Instructor? Check assignment
+        }
+
+        // 2. Check Coordinator (if not already authorized)
+        if (!authorized) {
+            try {
+                const count = await course.countCoordinators({ where: { id: req.user.id } });
+                if (count > 0) {
+                    authorized = true;
+                    targetSection = section || null;
+                }
+            } catch (err) { }
+        }
+
+        // 3. Check Instructor (if not already authorized)
+        if (!authorized && req.user.role === 'faculty') {
             const assignment = await CourseSection.findOne({
                 where: { course_id, instructor_id: req.user.id }
             });
 
-            if (!assignment) {
-                return res.status(403).json({ message: 'You are not an instructor for this course.' });
-            }
+            if (assignment) {
+                // Strict check for Instructors
+                const type = (file_type || '').trim().toLowerCase();
+                const allowedType = 'class_material';
 
-            // NEW: Restrict Instructors to 'class_material' only
-            if (file_type !== 'class_material') {
-                return res.status(403).json({ message: 'Instructors can only upload Class Material.' });
-            }
+                if (type !== allowedType) {
+                    return res.status(403).json({
+                        message: `Instructors can only upload Class Material. You tried to upload: '${file_type}'`
+                    });
+                }
 
-            // Instructor force-assigned to their section
-            targetSection = assignment.section;
-        } else {
-            return res.status(403).json({ message: 'Students cannot upload course files.' });
+                authorized = true;
+                targetSection = assignment.section;
+                req.body.file_type = allowedType; // Enforce type
+            }
         }
 
+        if (!authorized) {
+            return res.status(403).json({ message: 'You are not authorized to upload files for this course.' });
+        }
 
         let s3Key = file.filename;
         let location = `/uploads/${file.filename}`;
 
-        // Check if S3 is configured
         if (process.env.AWS_BUCKET_NAME) {
             const result = await uploadFile(file);
-            try {
-                await unlinkFile(file.path);
-            } catch (e) { console.error('Error deleting temp file', e); }
+            try { await unlinkFile(file.path); } catch (e) { }
             s3Key = result.Key;
             location = result.Location;
         }
 
-        // Save to Database
-        const dbFile = await File.create({
+        await File.create({
             course_id,
-            file_type: file_type || 'other',
+            file_type: req.body.file_type || file_type || 'other',
             filename: file.originalname,
             s3_key: s3Key,
             section: targetSection,
