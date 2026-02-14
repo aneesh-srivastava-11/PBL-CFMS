@@ -26,8 +26,8 @@ if (process.env.NODE_ENV === 'development') {
         )
     }));
     // File logs ONLY in development
-    logger.add(new winston.transports.File({ filename: path.join(__dirname, '../logs/error.log'), level: 'error' }));
-    logger.add(new winston.transports.File({ filename: path.join(__dirname, '../logs/combined.log') }));
+    // logger.add(new winston.transports.File({ filename: path.join(__dirname, '../logs/error.log'), level: 'error' }));
+    // logger.add(new winston.transports.File({ filename: path.join(__dirname, '../logs/combined.log') }));
 } else {
     // Production / Vercel / Undefined: Console only
     logger.add(new winston.transports.Console({

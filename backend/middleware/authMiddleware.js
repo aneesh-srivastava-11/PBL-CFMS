@@ -1,6 +1,13 @@
 const admin = require('../config/firebaseAdmin');
 const User = require('../models/userModel');
 const logger = require('../utils/logger');
+const { LRUCache } = require('lru-cache');
+
+// Initialize cache: Max 500 users, 10 minutes TTL
+const userCache = new LRUCache({
+    max: 500,
+    ttl: 1000 * 60 * 10, // 10 Minutes
+});
 
 const protect = async (req, res, next) => {
     let token;
@@ -9,13 +16,19 @@ const protect = async (req, res, next) => {
         try {
             token = req.headers.authorization.split(' ')[1];
 
-            // Verify token with Firebase Admin
-            logger.debug(`[DEBUG] Verifying token: ${token.substring(0, 10)}...`);
+            // 1. Check Cache
+            const cachedUser = userCache.get(token);
+            if (cachedUser) {
+                req.user = cachedUser;
+                return next();
+            }
+
+            // 2. Verify token with Firebase Admin
+            // logger.debug(`[DEBUG] Verifying token: ${token.substring(0, 10)}...`);
             const decodedToken = await admin.auth().verifyIdToken(token);
             req.user = decodedToken; // { uid, email, ... }
-            logger.debug(`[DEBUG] Token verified for: ${req.user.email}`);
 
-            // Attach internal user ID and Role from MySQL
+            // 3. Attach internal user ID and Role from MySQL
             // Use case-insensitive search to ensure matching
             const { Op } = require('sequelize');
             const internalUser = await User.findOne({
@@ -23,15 +36,15 @@ const protect = async (req, res, next) => {
                     email: { [Op.iLike]: req.user.email }
                 }
             });
+
             if (internalUser) {
                 req.user.id = internalUser.id;
                 req.user.role = internalUser.role;
                 req.user.is_coordinator = internalUser.is_coordinator;
-                logger.debug(`[DEBUG] Internal User found. ID: ${internalUser.id}, Role: ${internalUser.role}, Coordinator: ${internalUser.is_coordinator}`);
-            } else {
-                logger.debug(`[DEBUG] No internal user found for ${req.user.email}`);
-                // If checking sync route, we might not have user yet, which is fine
             }
+
+            // 4. Store in Cache
+            userCache.set(token, req.user);
 
             next();
         } catch (error) {
