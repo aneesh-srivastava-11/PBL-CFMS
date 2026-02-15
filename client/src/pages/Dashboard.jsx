@@ -58,12 +58,7 @@ const Dashboard = () => {
     const [instructorForm, setInstructorForm] = useState({ instructorId: '', section: '' });
     const [coordinatorId, setCoordinatorId] = useState(''); // New state for coordinator assignment
 
-    const requiredTypes = [
-        'handout', 'attendance', 'assignment', 'marks',
-        'academic_feedback', 'action_taken', 'exam_paper',
-        'remedial', 'case_study', 'quiz', 'quiz_solution',
-        'exam_solution', 'assignment_solution'
-    ];
+
 
     // Sanitize API URL
     const apiUrl = import.meta.env.VITE_API_URL.replace(/\/$/, '');
@@ -328,22 +323,7 @@ const Dashboard = () => {
     };
 
     // Check if all required files are uploaded before course file generation
-    const checkRequiredFiles = async (courseId) => {
-        try {
-            const token = await user.token;
-            const response = await axios.get(
-                `${apiUrl}/api/courses/${courseId}/validate-files`,
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
-            );
-            setValidationData(response.data);
-            setShowValidationModal(true);
-        } catch (error) {
-            console.error('Validation error:', error);
-            alert('Failed to validate files: ' + (error.response?.data?.message || error.message));
-        }
-    };
+    // (This function was replaced by handleSmartGenerate but we keep the other utilities below)
 
     const handleDeleteCourse = async (courseId) => {
         try {
@@ -456,9 +436,35 @@ const Dashboard = () => {
         }
     };
 
-    const handleGenerateCourseFile = async (force = false) => {
+    // Smart Generate: Step 1 - Check Status & Open Modal
+    const handleSmartGenerate = async () => {
         if (!selectedCourse) return;
         setIsGenerating(true);
+        try {
+            const token = await user.token;
+            // Fetch status
+            const response = await axios.get(
+                `${apiUrl}/api/courses/${selectedCourse.id}/file-status`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            setValidationData(response.data);
+            setShowValidationModal(true);
+        } catch (error) {
+            console.error('Status check failed:', error);
+            alert('Failed to check course file status.');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    // Smart Generate: Step 2 - Actual Download (Called from Modal)
+    const handleDownloadPDF = async () => {
+        if (!selectedCourse) return;
+        // Close modal immediately or keep it open? User preference usually to keep open until done or close.
+        // Let's keep it open but show loading state if possible, or just close it. 
+        // For now, let's close it to avoid double-clicks, or disable button.
+
         try {
             const config = {
                 headers: { Authorization: `Bearer ${user.token}` },
@@ -466,7 +472,7 @@ const Dashboard = () => {
             };
             const response = await axios.post(
                 `${apiUrl}/api/courses/${selectedCourse.id}/generate-pdf`,
-                { force },
+                {}, // No force needed, backend handles it
                 config
             );
 
@@ -479,30 +485,11 @@ const Dashboard = () => {
             link.click();
             link.remove();
 
+            // Close modal after success
             setShowValidationModal(false);
-            setMissingFiles([]);
         } catch (error) {
-            console.error('Generation failed', error);
-            if (error.response && error.response.data) {
-                try {
-                    const decoder = new TextDecoder('utf-8');
-                    const jsonString = decoder.decode(error.response.data);
-                    const errorData = JSON.parse(jsonString);
-
-                    if (error.response.status === 400 && errorData.missing) {
-                        setMissingFiles(errorData.missing);
-                        setShowValidationModal(true);
-                        return;
-                    }
-                    alert(errorData.message || 'Failed to generate course file.');
-                } catch (parseError) {
-                    alert('Failed to generate course file. (Parse Error)');
-                }
-            } else {
-                alert('Failed to generate course file.');
-            }
-        } finally {
-            setIsGenerating(false);
+            console.error('Download PDF failed', error);
+            alert('Failed to download PDF.');
         }
     };
 
@@ -910,14 +897,16 @@ const Dashboard = () => {
                                         {(selectedCourse.coordinators?.some(c => c.id === user.id) || user.role === 'hod' || user.role === 'admin') && (
                                             <>
                                                 <button
-                                                    onClick={() => checkRequiredFiles(selectedCourse.id)}
-                                                    className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition flex items-center gap-1"
+                                                    onClick={handleSmartGenerate}
+                                                    disabled={isGenerating}
+                                                    className="text-xs bg-orange-600 text-white px-3 py-1.5 rounded hover:bg-orange-700 transition flex items-center gap-2"
                                                 >
-                                                    <FileText className="w-3 h-3" />
-                                                    Check Files
-                                                </button>
-                                                <button onClick={() => handleGenerateCourseFile(false)} disabled={isGenerating} className="text-xs bg-orange-600 text-white px-3 py-1.5 rounded hover:bg-orange-700 transition">
-                                                    {isGenerating ? 'Wait...' : 'Generate PDF'}
+                                                    {isGenerating ? 'Checking...' : (
+                                                        <>
+                                                            <FileText className="w-3 h-3" />
+                                                            Generate PDF
+                                                        </>
+                                                    )}
                                                 </button>
                                             </>
                                         )}
@@ -1285,23 +1274,53 @@ const Dashboard = () => {
                 </main>
             </div>
 
-            {/* Validation Modal */}
+            {/* Course File Validation Modal */}
             {showValidationModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                        <h3 className="text-lg font-bold text-gray-800 mb-4">Incomplete Course File</h3>
-                        <p className="text-sm text-gray-600 mb-4">The following mandatory documents are missing:</p>
-                        <div className="max-h-60 overflow-y-auto space-y-2 mb-6">
-                            {requiredTypes.map(type => (
-                                <div key={type} className={`flex items-center justify-between p-2 rounded text-sm ${missingFiles.includes(type) ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>
-                                    <span className="capitalize">{type.replace(/_/g, ' ')}</span>
-                                    {missingFiles.includes(type) ? <XCircle size={16} /> : <CheckCircle size={16} />}
-                                </div>
-                            ))}
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Course File Status</h3>
+
+                        <div className="mb-4">
+                            <div className="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4">
+                                <p className="text-sm text-blue-700">
+                                    The following checks have been performed. You can download the PDF regardless of missing files.
+                                </p>
+                            </div>
+
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-semibold text-gray-600">Total Status</span>
+                                <span className="text-sm font-bold text-gray-800">
+                                    {validationData?.total_required - (validationData?.missing?.length || 0)} / {validationData?.total_required} Present
+                                </span>
+                            </div>
                         </div>
+
+                        <div className="max-h-60 overflow-y-auto space-y-2 mb-6 border rounded p-2 bg-gray-50">
+                            {(validationData?.required_list || []).map(type => {
+                                const isMissing = validationData.missing?.includes(type);
+                                return (
+                                    <div key={type} className={`flex items-center justify-between p-2 rounded text-sm ${isMissing ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>
+                                        <span className="capitalize">{type.replace(/_/g, ' ')}</span>
+                                        {isMissing ? <XCircle size={16} /> : <CheckCircle size={16} />}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
                         <div className="flex justify-end gap-3">
-                            <button onClick={() => setShowValidationModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                            <button onClick={() => handleGenerateCourseFile(true)} className="px-4 py-2 text-sm bg-orange-600 text-white rounded hover:bg-orange-700">Force Generate</button>
+                            <button
+                                onClick={() => setShowValidationModal(false)}
+                                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDownloadPDF}
+                                className="px-4 py-2 text-sm bg-orange-600 text-white rounded hover:bg-orange-700 flex items-center gap-2"
+                                disabled={isGenerating}
+                            >
+                                {isGenerating ? 'Generating...' : 'Download PDF'}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1358,16 +1377,7 @@ const Dashboard = () => {
             )}
 
             {/* Course File Validation Modal */}
-            {showValidationModal && (
-                <CourseFileValidationModal
-                    validationData={validationData}
-                    onClose={() => setShowValidationModal(false)}
-                    onGenerate={() => {
-                        setShowValidationModal(false);
-                        // Proceed with course file generation if needed
-                    }}
-                />
-            )}
+
         </div>
     );
 };

@@ -24,6 +24,7 @@ router.route('/:id')
 
 router.get('/:id/download', protect, authorize('admin', 'faculty', 'reviewer', 'hod'), require('../controllers/courseController').downloadCourseZip);
 router.get('/:id/validate-files', protect, require('../controllers/courseController').validateCourseFilesHandler);
+router.get('/:id/file-status', protect, authorize('admin', 'faculty', 'hod'), require('../controllers/courseController').getCourseFileStatus);
 router.post('/:id/generate-pdf', protect, authorize('admin', 'faculty', 'hod'), require('../controllers/courseController').generateCoursePDF);
 
 

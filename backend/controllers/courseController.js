@@ -238,15 +238,40 @@ exports.deleteCourse = asyncHandler(async (req, res) => {
     res.json({ message: 'Course deleted successfully' });
 });
 
+exports.getCourseFileStatus = asyncHandler(async (req, res) => {
+    const courseId = req.params.id;
+
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+        res.status(404);
+        throw new Error('Course not found');
+    }
+
+    const allFiles = await File.findAll({ where: { course_id: courseId } });
+
+    // Use the utility to validate against the 30 Theory / 20 Lab list
+    const validationResult = validateCourseFiles(allFiles, course.course_type || 'theory');
+    const requiredList = getRequiredFilesList(course.course_type || 'theory');
+
+    res.json({
+        course_code: course.course_code,
+        course_type: course.course_type || 'theory',
+        missing: validationResult.missing,
+        present: validationResult.uploaded,
+        required_list: requiredList,
+        total_files: allFiles.length,
+        total_required: validationResult.totalRequired
+    });
+});
+
 exports.generateCoursePDF = asyncHandler(async (req, res) => {
     const courseId = req.params.id;
-    const { force } = req.body; // force=true to skip validation
+    // const { force } = req.body; // No longer needed, always forced
 
-    logger.debug(`[DEBUG] generateCoursePDF Entry. User: ${req.user.id}, Role: ${req.user.role}, Coordinator: ${req.user.is_coordinator}`);
+    logger.debug(`[DEBUG] generateCoursePDF Entry. User: ${req.user.id}`);
 
     // Check Coordinator Permission
     if (!req.user.is_coordinator && req.user.role !== 'admin') {
-        logger.warn(`[DEBUG] Authorization failed. is_coordinator: ${req.user.is_coordinator}`);
         res.status(403);
         throw new Error('Only Course Coordinators can generate files.');
     }
@@ -257,28 +282,8 @@ exports.generateCoursePDF = asyncHandler(async (req, res) => {
         throw new Error('Course not found');
     }
 
-    // 1. Validation Logic
+    // 1. Fetch Files (No Validation Stop)
     const allFiles = await File.findAll({ where: { course_id: courseId } });
-    const presentTypes = new Set(allFiles.map(f => f.file_type));
-
-    const requiredTypes = [
-        'handout', 'attendance', 'assignment', 'marks',
-        'academic_feedback', 'action_taken', 'exam_paper',
-        'remedial', 'case_study', 'quiz', 'quiz_solution',
-        'exam_solution', 'assignment_solution', 'materials'
-    ];
-
-    const missingTypes = requiredTypes.filter(type => !presentTypes.has(type));
-
-    if (missingTypes.length > 0 && !force) {
-        res.status(400).json({
-            message: 'Missing required course files',
-            missing: missingTypes
-        });
-        return; // Return explicitly here because we sent a JSON response already
-    }
-
-    logger.debug(`[DEBUG] generateCoursePDF: Found ${allFiles.length} files. Missing types: ${missingTypes.join(', ')}`);
 
     // 2. PDF Merge Logic
     const mergedPdf = await PDFDocument.create();
@@ -292,12 +297,26 @@ exports.generateCoursePDF = asyncHandler(async (req, res) => {
         size: 24,
     });
 
-    // Filter for PDFs and Images
+    page.drawText(`Generated on: ${new Date().toLocaleDateString()}`, {
+        x: 50,
+        y: height - 150,
+        size: 12,
+    });
+
+    // Valid Files Only
     const mergeableFiles = allFiles.filter(f => {
         if (!f.filename) return false;
         const ext = f.filename.toLowerCase().split('.').pop();
         return ['pdf', 'png', 'jpg', 'jpeg'].includes(ext);
     });
+
+    logger.debug(`[DEBUG] Found ${mergeableFiles.length} mergeable files.`);
+
+    if (mergeableFiles.length === 0) {
+        page.drawText(`No mergeable files found for this course.`, {
+            x: 50, y: height - 200, size: 12, color: { type: 'RGB', r: 1, g: 0, b: 0 }
+        });
+    }
 
     logger.debug(`[DEBUG] Found ${mergeableFiles.length} mergeable files (PDF/Image).`);
 
