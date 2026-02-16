@@ -889,7 +889,7 @@ const Dashboard = () => {
                                     ) : 'Course Details'}
                                 </h3>
                                 {selectedCourse && (
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-wrap gap-2">
                                         {user.role !== 'student' && (
                                             <button onClick={handleDownloadZip} className="text-xs bg-white border border-orange-500 text-orange-600 px-3 py-1.5 rounded hover:bg-orange-50 transition">Download Zip</button>
                                         )}
@@ -992,7 +992,7 @@ const Dashboard = () => {
                                         {(user.role === 'faculty' || user.role === 'hod' || user.role === 'admin') && (
                                             <div className="bg-orange-50 border border-orange-100 rounded p-4 mb-6">
                                                 <h4 className="text-sm font-bold text-orange-800 mb-3 uppercase tracking-wide">Upload Document</h4>
-                                                <form onSubmit={handleFileUpload} className="flex flex-col md:flex-row gap-3 items-end">
+                                                <form onSubmit={handleFileUpload} className="flex flex-col md:flex-row gap-3 items-stretch md:items-end">
                                                     <div className="flex-1 w-full">
                                                         <label className="text-xs font-semibold text-gray-500 mb-1 block">File</label>
                                                         <input type="file" className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200" onChange={e => setFile(e.target.files[0])} required />
@@ -1096,7 +1096,7 @@ const Dashboard = () => {
                                                                         await axios.post(`${apiUrl}/api/enroll/${selectedCourse.id}/bulk`, formData, config);
                                                                         alert('Uploaded!'); fetchEnrolledStudents(selectedCourse.id); e.target.reset();
                                                                     } catch (err) { alert('Failed'); }
-                                                                }} className="flex gap-2">
+                                                                }} className="flex flex-col sm:flex-row gap-2">
                                                                     <input type="file" name="files" accept=".xlsx, .xls" className="flex-1 text-sm text-gray-500" required />
                                                                     <button type="submit" className="text-xs border border-green-600 text-green-700 px-3 py-1 rounded hover:bg-green-50">Upload Excel</button>
                                                                 </form>

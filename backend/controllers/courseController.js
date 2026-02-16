@@ -9,8 +9,11 @@ const fsPromises = require('fs').promises;
 const path = require('path');
 const os = require('os');
 const { getFileStream } = require('../utils/s3');
-const { PDFDocument } = require('pdf-lib');
+const { PDFDocument, rgb } = require('pdf-lib');
+// ... (keep other imports)
+
 const { validateCourseFiles, getRequiredFilesList } = require('../utils/courseFileValidation');
+
 
 exports.createCourse = asyncHandler(async (req, res) => {
     const { course_code, course_name, semester, course_type } = req.body;
@@ -337,7 +340,7 @@ exports.generateCoursePDF = asyncHandler(async (req, res) => {
             const lineHeight = 15;
 
             // Title
-            currentListPage.drawText(`${itemNumber}. ${requiredItem}`, { x: 50, y, size: 14, color: { type: 'RGB', r: 0, g: 0, b: 0.8 } });
+            currentListPage.drawText(`${itemNumber}. ${requiredItem}`, { x: 50, y, size: 14, color: rgb(0, 0, 0.8) });
             y -= 30;
 
             // Table Header
@@ -427,14 +430,14 @@ exports.generateCoursePDF = asyncHandler(async (req, res) => {
                 logger.error(`[PDF] Error merging ${matchedFile.filename}`, err);
                 const errPage = mergedPdf.addPage();
                 errPage.drawText(`${itemNumber}. ${requiredItem}`, { x: 50, y: height - 50, size: 14 });
-                errPage.drawText(`ERROR: Could not merge file.`, { x: 50, y: height - 80, size: 12, color: { type: 'RGB', r: 1, g: 0, b: 0 } });
+                errPage.drawText(`ERROR: Could not merge file.`, { x: 50, y: height - 80, size: 12, color: rgb(1, 0, 0) });
             }
         } else {
             // File Missing Placeholder
             // Only add placeholder if it's NOT the auto-generated one (which we handled above)
             const placeholder = mergedPdf.addPage();
             placeholder.drawText(`${itemNumber}. ${requiredItem}`, { x: 50, y: height - 50, size: 14 });
-            placeholder.drawText(`(File Not Uploaded)`, { x: 50, y: height - 100, size: 12, color: { type: 'RGB', r: 0.5, g: 0.5, b: 0.5 } });
+            placeholder.drawText(`(File Not Uploaded)`, { x: 50, y: height - 100, size: 12, color: rgb(0.5, 0.5, 0.5) });
         }
     }
 
