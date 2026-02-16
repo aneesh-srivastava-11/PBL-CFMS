@@ -266,7 +266,11 @@ exports.getCourseFileStatus = asyncHandler(async (req, res) => {
 
 exports.generateCoursePDF = asyncHandler(async (req, res) => {
     const courseId = req.params.id;
-    // const { force } = req.body; // No longer needed, always forced
+    // Import validation lists locally or at top level if possible, but for now inside function is fine or cleaner at top
+    const { REQUIRED_FILES_THEORY, REQUIRED_FILES_LAB } = require('../utils/courseFileValidation');
+    const Enrollment = require('../models/enrollmentModel');
+    const User = require('../models/userModel');
+    const sequelize = require('sequelize'); // Assuming sequelize is available or needs to be imported
 
     logger.debug(`[DEBUG] generateCoursePDF Entry. User: ${req.user.id}`);
 
@@ -282,126 +286,167 @@ exports.generateCoursePDF = asyncHandler(async (req, res) => {
         throw new Error('Course not found');
     }
 
-    // 1. Fetch Files (No Validation Stop)
+    // 1. Fetch Uploaded Files
     const allFiles = await File.findAll({ where: { course_id: courseId } });
 
-    // 2. PDF Merge Logic
+    // 2. Prepare Required List
+    const requiredList = (course.course_type === 'lab') ? REQUIRED_FILES_LAB : REQUIRED_FILES_THEORY;
+
+    // 3. Initialize PDF
     const mergedPdf = await PDFDocument.create();
 
-    // Add a Title Page
-    const page = mergedPdf.addPage();
-    const { width, height } = page.getSize();
-    page.drawText(`Course File: ${course.course_code} - ${course.course_name}`, {
-        x: 50,
-        y: height - 100,
-        size: 24,
+    // --- TITLE PAGE ---
+    const titlePage = mergedPdf.addPage();
+    const { width, height } = titlePage.getSize();
+    titlePage.drawText(`Course File: ${course.course_code} - ${course.course_name}`, {
+        x: 50, y: height - 100, size: 24,
+    });
+    titlePage.drawText(`Generated on: ${new Date().toLocaleDateString()}`, {
+        x: 50, y: height - 150, size: 12,
+    });
+    titlePage.drawText(`Faculty/Coordinator: ${req.user.name}`, {
+        x: 50, y: height - 180, size: 12,
     });
 
-    page.drawText(`Generated on: ${new Date().toLocaleDateString()}`, {
-        x: 50,
-        y: height - 150,
-        size: 12,
-    });
+    // 4. Iterate and Merge in Order
+    for (const [index, requiredItem] of requiredList.entries()) {
+        const itemNumber = index + 1;
 
-    // Valid Files Only
-    const mergeableFiles = allFiles.filter(f => {
-        if (!f.filename) return false;
-        const ext = f.filename.toLowerCase().split('.').pop();
-        return ['pdf', 'png', 'jpg', 'jpeg'].includes(ext);
-    });
+        // Header Page for every item (Optional, but good for separation)
+        // let separatorPage = mergedPdf.addPage();
+        // separatorPage.drawText(`${itemNumber}. ${requiredItem}`, { x: 50, y: height/2, size: 18 });
 
-    logger.debug(`[DEBUG] Found ${mergeableFiles.length} mergeable files.`);
+        // A. SPECIAL CASE: "Name list of students" (Auto-Generate)
+        if (requiredItem.toLowerCase().includes('name list of students')) {
+            logger.debug(`[PDF] Auto-generating student list for item: ${requiredItem}`);
 
-    if (mergeableFiles.length === 0) {
-        page.drawText(`No mergeable files found for this course.`, {
-            x: 50, y: height - 200, size: 12, color: { type: 'RGB', r: 1, g: 0, b: 0 }
+            // Fetch Students
+            const enrollments = await Enrollment.findAll({
+                where: { course_id: courseId },
+                include: [{ model: User, as: 'student', attributes: ['name', 'email', 'section', 'phone_number'] }],
+                order: [
+                    ['section', 'ASC'],
+                    [{ model: User, as: 'student' }, 'name', 'ASC']
+                ]
+            });
+
+            // Create Student List Page(s)
+            let currentListPage = mergedPdf.addPage();
+            let y = height - 50;
+            const fontSize = 10;
+            const lineHeight = 15;
+
+            // Title
+            currentListPage.drawText(`${itemNumber}. ${requiredItem}`, { x: 50, y, size: 14, color: { type: 'RGB', r: 0, g: 0, b: 0.8 } });
+            y -= 30;
+
+            // Table Header
+            currentListPage.drawText('S.No', { x: 50, y, size: fontSize, font: await mergedPdf.embedFont('Helvetica-Bold') });
+            currentListPage.drawText('Name', { x: 100, y, size: fontSize, font: await mergedPdf.embedFont('Helvetica-Bold') });
+            currentListPage.drawText('Section', { x: 300, y, size: fontSize, font: await mergedPdf.embedFont('Helvetica-Bold') });
+            currentListPage.drawText('Email', { x: 380, y, size: fontSize, font: await mergedPdf.embedFont('Helvetica-Bold') });
+            y -= lineHeight * 1.5;
+
+            // Table Rows
+            const fontRegular = await mergedPdf.embedFont('Helvetica');
+            enrollments.forEach((enrollment, idx) => {
+                if (y < 50) {
+                    currentListPage = mergedPdf.addPage();
+                    y = height - 50;
+                }
+                const student = enrollment.student;
+                const studName = student ? student.name : 'Unknown';
+                const studEmail = student ? student.email : '-';
+                const studSection = enrollment.section || '-';
+
+                currentListPage.drawText(`${idx + 1}`, { x: 50, y, size: fontSize, font: fontRegular });
+                currentListPage.drawText(studName.substring(0, 35), { x: 100, y, size: fontSize, font: fontRegular });
+                currentListPage.drawText(studSection, { x: 300, y, size: fontSize, font: fontRegular });
+                currentListPage.drawText(studEmail.substring(0, 35), { x: 380, y, size: fontSize, font: fontRegular });
+                y -= lineHeight;
+            });
+
+            if (enrollments.length === 0) {
+                currentListPage.drawText('(No students enrolled yet)', { x: 50, y, size: fontSize, font: fontRegular });
+            }
+
+            continue; // Move to next item
+        }
+
+        // B. STANDARD CASE: Look for Uploaded File
+        // Fuzzy Match Logic (Same as validation utility)
+        const matchedFile = allFiles.find(file => {
+            const reqNormalized = requiredItem.toLowerCase().trim();
+            const uploadedNormalized = (file.filename || '').toLowerCase().trim();
+            // Check matching (uploaded name contains requirement OR requirement contains uploaded name 'type')
+            // Actually relying on file_type if available is better? 
+            // The file model has 'file_type'. But the list has descriptive text.
+            // Let's rely on filenames or file_type?
+            // Current validation logic uses filename checks. Let's stick to that for consistency with "Status Modal".
+            return uploadedNormalized.includes(reqNormalized) || reqNormalized.includes(uploadedNormalized) || (file.file_type && reqNormalized.includes(file.file_type.replace(/_/g, ' ').toLowerCase()));
         });
-    }
 
-    logger.debug(`[DEBUG] Found ${mergeableFiles.length} mergeable files (PDF/Image).`);
-
-    for (const file of mergeableFiles) {
-        try {
-            let fileBuffer;
-            if (process.env.AWS_BUCKET_NAME) {
-                // S3/Supabase Logic
-                try {
-                    // Fetch stream from S3
-                    const stream = await getFileStream(file.s3_key);
-                    // Convert Stream to Buffer
+        if (matchedFile) {
+            logger.debug(`[PDF] Merging file for ${requiredItem}: ${matchedFile.filename}`);
+            try {
+                let fileBuffer;
+                if (process.env.AWS_BUCKET_NAME) {
+                    const stream = await getFileStream(matchedFile.s3_key);
                     const chunks = [];
-                    for await (const chunk of stream) {
-                        chunks.push(chunk);
-                    }
+                    for await (const chunk of stream) chunks.push(chunk);
                     fileBuffer = Buffer.concat(chunks);
-                    logger.debug(`[DEBUG] Fetched from S3: ${file.filename}, Size: ${fileBuffer.length}`);
-                } catch (s3Error) {
-                    logger.error(`[ERROR] Failed to fetch from S3: ${file.filename}`, s3Error);
-                    continue; // Skip this file
-                }
-            } else {
-                // Local storage - Use async file check
-                const filePath = path.join(os.tmpdir(), file.s3_key);
-                try {
-                    await fsPromises.access(filePath); // Async file check
-                    fileBuffer = await fsPromises.readFile(filePath);
-                    logger.debug(`[DEBUG] Loaded from local: ${file.filename}, Size: ${fileBuffer.length}`);
-                } catch (fileError) {
-                    logger.warn(`[DEBUG] File missing on disk: ${filePath}`);
-                    continue;
-                }
-            }
-
-            const ext = file.filename.toLowerCase().split('.').pop();
-
-            if (ext === 'pdf') {
-                const srcPdf = await PDFDocument.load(fileBuffer);
-                const copiedPages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
-                copiedPages.forEach(p => mergedPdf.addPage(p));
-                logger.debug(`[DEBUG] Merged PDF: ${file.filename}`);
-            } else if (['png', 'jpg', 'jpeg'].includes(ext)) {
-                const imagePage = mergedPdf.addPage();
-                let image;
-                if (ext === 'png') {
-                    image = await mergedPdf.embedPng(fileBuffer);
                 } else {
-                    image = await mergedPdf.embedJpg(fileBuffer);
+                    const filePath = path.join(os.tmpdir(), matchedFile.s3_key);
+                    await fsPromises.access(filePath);
+                    fileBuffer = await fsPromises.readFile(filePath);
                 }
 
-                const { width, height } = image.scale(1);
-                // Fit image to page (A4 size approx 595x842)
-                const pageWidth = imagePage.getWidth();
-                const pageHeight = imagePage.getHeight();
+                // Merge PDF or Image
+                const ext = matchedFile.filename.split('.').pop().toLowerCase();
+                if (ext === 'pdf') {
+                    const pdfToMerge = await PDFDocument.load(fileBuffer);
+                    const indices = pdfToMerge.getPageIndices();
+                    const copiedPages = await mergedPdf.copyPages(pdfToMerge, indices);
+                    copiedPages.forEach(p => mergedPdf.addPage(p));
+                } else if (['jpg', 'jpeg', 'png'].includes(ext)) {
+                    const imgPage = mergedPdf.addPage();
+                    let embedding;
+                    if (ext === 'png') embedding = await mergedPdf.embedPng(fileBuffer);
+                    else embedding = await mergedPdf.embedJpg(fileBuffer);
 
-                // Logic to scale down if too big
-                const scaleFactor = Math.min((pageWidth - 100) / width, (pageHeight - 100) / height, 1);
-                const scaledWidth = width * scaleFactor;
-                const scaledHeight = height * scaleFactor;
-
-                imagePage.drawImage(image, {
-                    x: (pageWidth - scaledWidth) / 2,
-                    y: (pageHeight - scaledHeight) / 2,
-                    width: scaledWidth,
-                    height: scaledHeight,
-                });
-                logger.debug(`[DEBUG] Embedded Image: ${file.filename}`);
+                    const { width, height } = imgPage.getSize();
+                    const dims = embedding.scaleToFit(width - 40, height - 40);
+                    imgPage.drawImage(embedding, {
+                        x: 20,
+                        y: height - dims.height - 20,
+                        width: dims.width,
+                        height: dims.height,
+                    });
+                }
+            } catch (err) {
+                logger.error(`[PDF] Error merging ${matchedFile.filename}`, err);
+                const errPage = mergedPdf.addPage();
+                errPage.drawText(`${itemNumber}. ${requiredItem}`, { x: 50, y: height - 50, size: 14 });
+                errPage.drawText(`ERROR: Could not merge file.`, { x: 50, y: height - 80, size: 12, color: { type: 'RGB', r: 1, g: 0, b: 0 } });
             }
-
-        } catch (mergeError) {
-            logger.error(`[ERROR] Failed to merge file ${file.filename}: ${mergeError.message}`);
+        } else {
+            // File Missing Placeholder
+            // Only add placeholder if it's NOT the auto-generated one (which we handled above)
+            const placeholder = mergedPdf.addPage();
+            placeholder.drawText(`${itemNumber}. ${requiredItem}`, { x: 50, y: height - 50, size: 14 });
+            placeholder.drawText(`(File Not Uploaded)`, { x: 50, y: height - 100, size: 12, color: { type: 'RGB', r: 0.5, g: 0.5, b: 0.5 } });
         }
     }
 
+    // Finalize
     const pdfBytes = await mergedPdf.save();
-
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=${course.course_code}_CourseFile.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${course.course_code}_course_file.pdf`);
     res.send(Buffer.from(pdfBytes));
 });
 
 /**
  * Validate if all required files are uploaded for a course
- * GET /api/courses/:id/validate-files
  */
 exports.validateCourseFilesHandler = asyncHandler(async (req, res) => {
     const courseId = req.params.id;
