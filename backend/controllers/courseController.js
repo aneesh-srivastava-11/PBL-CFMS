@@ -1,6 +1,7 @@
 const Course = require('../models/courseModel');
 const File = require('../models/fileModel');
 const User = require('../models/userModel');
+const Enrollment = require('../models/enrollmentModel');
 const asyncHandler = require('../middleware/asyncHandler');
 const logger = require('../utils/logger');
 const archiver = require('archiver');
@@ -471,6 +472,30 @@ exports.validateCourseFilesHandler = asyncHandler(async (req, res) => {
     const validation = validateCourseFiles(uploadedFiles, course.course_type);
     const requiredList = getRequiredFilesList(course.course_type);
 
+    // SMART VALIDATION: Check if students are enrolled (Auto-Generated List)
+    const studentCount = await Enrollment.count({ where: { course_id: courseId } });
+
+    if (studentCount > 0) {
+        // Find indices of all "Name list of students" requirement variations (should be just one)
+        const relevantFiles = validation.missing.filter(f => f.toLowerCase().includes('name list of students'));
+
+        if (relevantFiles.length > 0) {
+            // Remove from missing
+            validation.missing = validation.missing.filter(f => !f.toLowerCase().includes('name list of students'));
+            // Add to uploaded
+            relevantFiles.forEach(f => validation.uploaded.push(f));
+
+            // KEY FIX: Update the counts and valid status manually
+            validation.totalUploaded = validation.uploaded.length;
+            validation.valid = validation.missing.length === 0;
+
+            // Note: totalRequired remains the same
+        }
+    }
+
+    // Re-verify validity
+    validation.valid = validation.missing.length === 0;
+
     res.json({
         course_type: course.course_type,
         valid: validation.valid,
@@ -478,6 +503,13 @@ exports.validateCourseFilesHandler = asyncHandler(async (req, res) => {
         totalUploaded: validation.totalUploaded,
         missing: validation.missing,
         uploaded: validation.uploaded,
-        requiredFiles: requiredList
+        requiredFiles: requiredList,
+        debug_info: {
+            courseId: courseId,
+            studentCount: studentCount,
+            wasSmartChecked: studentCount > 0,
+            // Re-check finding to see if we missed it
+            wouldFind: requiredList.filter(f => f.toLowerCase().includes('name list of students'))
+        }
     });
 });

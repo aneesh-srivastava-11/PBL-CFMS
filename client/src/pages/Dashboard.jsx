@@ -1287,17 +1287,38 @@ const Dashboard = () => {
                                 </p>
                             </div>
 
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-semibold text-gray-600">Total Status</span>
-                                <span className="text-sm font-bold text-gray-800">
-                                    {validationData?.total_required - (validationData?.missing?.length || 0)} / {validationData?.total_required} Present
-                                </span>
-                            </div>
+                            {/* FRONTEND OVERRIDE LOGIC START */}
+                            {(() => {
+                                const studentListMissing = validationData?.missing?.some(m => m.toLowerCase().includes('name list of students'));
+                                const hasStudents = enrolledStudents && enrolledStudents.length > 0;
+                                const isFixed = studentListMissing && hasStudents;
+
+                                const rawMissingCount = validationData?.missing?.length || 0;
+                                const adjustedMissingCount = isFixed ? rawMissingCount - 1 : rawMissingCount;
+                                const presentCount = (validationData?.total_required || 0) - adjustedMissingCount;
+
+                                return (
+                                    <>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-sm font-semibold text-gray-600">Total Status</span>
+                                            <span className="text-sm font-bold text-gray-800">
+                                                {presentCount} / {validationData?.total_required} Present
+                                            </span>
+                                        </div>
+                                    </>
+                                );
+                            })()}
                         </div>
 
                         <div className="max-h-60 overflow-y-auto space-y-2 mb-6 border rounded p-2 bg-gray-50">
                             {(validationData?.required_list || []).map(type => {
-                                const isMissing = validationData.missing?.includes(type);
+                                let isMissing = validationData.missing?.includes(type);
+
+                                // Override for Student List
+                                if (type.toLowerCase().includes('name list of students') && enrolledStudents?.length > 0) {
+                                    isMissing = false;
+                                }
+
                                 return (
                                     <div key={type} className={`flex items-center justify-between p-2 rounded text-sm ${isMissing ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>
                                         <span className="capitalize">{type.replace(/_/g, ' ')}</span>
