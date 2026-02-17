@@ -278,10 +278,10 @@ exports.generateCoursePDF = asyncHandler(async (req, res) => {
 
     logger.debug(`[DEBUG] generateCoursePDF Entry. User: ${req.user.id}`);
 
-    // Check Coordinator Permission
-    if (!req.user.is_coordinator && req.user.role !== 'admin') {
+    // Check Coordinator/HOD Permission
+    if (!req.user.is_coordinator && !['admin', 'hod'].includes(req.user.role)) {
         res.status(403);
-        throw new Error('Only Course Coordinators can generate files.');
+        throw new Error('Only Course Coordinators, HODs, or Admins can generate files.');
     }
 
     const course = await Course.findByPk(courseId);
