@@ -111,7 +111,7 @@ exports.getCourses = asyncHandler(async (req, res) => {
             where: { student_id: req.user.id }
         });
 
-        const courseData = [];
+        const courseMap = new Map();
         for (const enrollment of enrollments) {
             const course = await Course.findByPk(enrollment.course_id, {
                 include: [includeCoordinators]
@@ -130,10 +130,12 @@ exports.getCourses = asyncHandler(async (req, res) => {
                 const cJson = course.toJSON();
                 cJson.my_section = enrollment.section;
                 cJson.my_instructor = instructor;
-                courseData.push(cJson);
+
+                // Deduplicate by course ID
+                courseMap.set(course.id, cJson);
             }
         }
-        courses = courseData;
+        courses = Array.from(courseMap.values());
 
     } else {
         // Admin/HOD
