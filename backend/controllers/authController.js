@@ -54,7 +54,10 @@ exports.loginSync = asyncHandler(async (req, res) => {
         email: user.email,
         role: user.role,
         is_coordinator: user.is_coordinator,
-        firebase_uid: user.firebase_uid
+        firebase_uid: user.firebase_uid,
+        section: user.section,
+        academic_semester: user.academic_semester,
+        phone_number: user.phone_number
     });
 });
 
