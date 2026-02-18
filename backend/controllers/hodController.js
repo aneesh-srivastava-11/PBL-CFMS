@@ -6,7 +6,7 @@ const fs = require('fs');
 const util = require('util');
 const unlinkFile = util.promisify(fs.unlink);
 const { autoEnrollStudentBySection } = require('../utils/autoEnrollment');
-const { createFirebaseUser } = require('../services/firebaseService');
+const { createFirebaseUser, deleteFirebaseUser } = require('../services/firebaseService');
 
 // @desc    Create a new course
 // @route   POST /api/hod/courses
@@ -418,4 +418,45 @@ exports.updateUser = asyncHandler(async (req, res) => {
             courses: autoEnrollResult.courses
         } : null
     });
+});
+
+// @desc    Delete a User (HOD Global Delete)
+// @route   DELETE /api/hod/users/:id
+// @access  Private (HOD Only)
+exports.deleteUser = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    const user = await User.findByPk(id);
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    // 1. Prevent Self-Deletion
+    if (user.id === req.user.id) {
+        res.status(400);
+        throw new Error('You cannot delete yourself.');
+    }
+
+    // 2. Prevent deleting other HODs or Admins (Safety)
+    if (user.role === 'admin' || (user.role === 'hod' && req.user.role !== 'admin')) {
+        res.status(403);
+        throw new Error('You are not authorized to delete this user.');
+    }
+
+    // 3. Delete from Firebase (if linked)
+    if (user.firebase_uid) {
+        try {
+            await deleteFirebaseUser(user.firebase_uid);
+        } catch (err) {
+            logger.warn(`[HOD] Failed to delete user ${user.email} from Firebase: ${err.message}`);
+            // Continue to delete from DB even if Firebase fails? Yes, to keep DB clean.
+        }
+    }
+
+    // 4. Delete from Database
+    await user.destroy();
+    logger.info(`[HOD] User deleted: ${user.email} (ID: ${user.id})`);
+
+    res.json({ message: 'User deleted successfully' });
 });
