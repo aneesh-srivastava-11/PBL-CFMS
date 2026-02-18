@@ -57,6 +57,7 @@ const Dashboard = () => {
     const [sections, setSections] = useState([]);
     const [instructorForm, setInstructorForm] = useState({ instructorId: '', section: '' });
     const [coordinatorId, setCoordinatorId] = useState(''); // New state for coordinator assignment
+    const [singleUserRole, setSingleUserRole] = useState('student'); // New state for conditionally hiding fields
 
 
 
@@ -787,13 +788,13 @@ const Dashboard = () => {
 
                             {/* HOD Actions: Bulk & Single */}
                             {['hod', 'admin'].includes(user.role?.toLowerCase()) && (
-                                <div className="p-4 mt-4 border-t border-gray-200 bg-purple-50 rounded-lg mx-2 mb-4">
-                                    <h4 className="text-sm font-bold text-purple-800 mb-2">HOD User Management</h4>
+                                <div className="p-4 mt-4 border-t border-gray-200 bg-orange-50 rounded-lg mx-2 mb-4">
+                                    <h4 className="text-sm font-bold text-orange-800 mb-2">HOD User Management</h4>
 
                                     <div className="space-y-4">
                                         {/* Single User Add */}
-                                        <div className="bg-white p-2 rounded border border-purple-100">
-                                            <h5 className="text-xs font-semibold text-purple-700 mb-1">Add Single User</h5>
+                                        <div className="bg-white p-3 rounded border border-orange-100 shadow-sm">
+                                            <h5 className="text-xs font-semibold text-orange-700 mb-2 uppercase tracking-tight">Add Single User</h5>
                                             <form onSubmit={async (e) => {
                                                 e.preventDefault();
                                                 const formData = new FormData(e.target);
@@ -807,55 +808,62 @@ const Dashboard = () => {
                                                 } catch (err) {
                                                     alert(err.response?.data?.message || 'Failed to create user');
                                                 }
-                                            }} className="space-y-2">
-                                                <input name="name" placeholder="Name" className="w-full text-xs p-1 border rounded" required />
-                                                <input name="email" type="email" placeholder="Email (@muj / @jaipur)" className="w-full text-xs p-1 border rounded" required />
-                                                <div className="flex gap-2">
-                                                    <select name="role" className="text-xs p-1 border rounded flex-1">
+                                            }} className="space-y-3">
+                                                <input name="name" placeholder="Full Name" className="w-full text-xs p-2 border border-gray-200 rounded focus:ring-1 focus:ring-orange-500 outline-none" required />
+                                                <input name="email" type="email" placeholder="Email (@muj / @jaipur)" className="w-full text-xs p-2 border border-gray-200 rounded focus:ring-1 focus:ring-orange-500 outline-none" required />
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <select
+                                                        name="role"
+                                                        value={singleUserRole}
+                                                        onChange={(e) => setSingleUserRole(e.target.value)}
+                                                        className="text-xs p-2 border border-gray-200 rounded focus:ring-1 focus:ring-orange-500 outline-none"
+                                                    >
                                                         <option value="student">Student</option>
                                                         <option value="faculty">Faculty</option>
                                                     </select>
-                                                    <input name="phone_number" placeholder="Phone" className="text-xs p-1 border rounded flex-1" />
+                                                    <input name="phone_number" placeholder="Phone" className="text-xs p-2 border border-gray-200 rounded focus:ring-1 focus:ring-orange-500 outline-none" />
                                                 </div>
                                                 {/* Fields for Student */}
-                                                <div className="flex gap-2">
-                                                    <input name="section" placeholder="Section (Student)" className="text-xs p-1 border rounded flex-1" />
-                                                    <input name="academic_semester" placeholder="Semester" className="text-xs p-1 border rounded flex-1" />
-                                                </div>
-                                                <button type="submit" className="w-full bg-purple-600 text-white text-xs py-1 rounded hover:bg-purple-700">Create User</button>
+                                                {singleUserRole === 'student' && (
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <input name="section" placeholder="Sec (e.g. A)" className="text-xs p-2 border border-gray-200 rounded focus:ring-1 focus:ring-orange-500 outline-none" />
+                                                        <input name="academic_semester" placeholder="Sem" className="text-xs p-2 border border-gray-200 rounded focus:ring-1 focus:ring-orange-500 outline-none" />
+                                                    </div>
+                                                )}
+                                                <button type="submit" className="w-full bg-orange-600 text-white text-xs font-bold py-2 rounded hover:bg-orange-700 transition shadow-sm">Create User</button>
                                             </form>
                                         </div>
 
                                         {/* Bulk Faculty */}
-                                        <form onSubmit={(e) => handleBulkUpload(e, 'faculty')} className="space-y-1">
-                                            <label className="text-xs font-semibold text-purple-700">Bulk Faculties (Excel)</label>
-                                            <div className="flex gap-2">
-                                                <input type="file" name="file" accept=".xlsx,.xls" className="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-purple-200 file:text-purple-700 hover:file:bg-purple-300" required />
-                                                <button type="submit" className="bg-purple-600 text-white text-xs px-2 py-1 rounded hover:bg-purple-700">Upload</button>
+                                        <form onSubmit={(e) => handleBulkUpload(e, 'faculty')} className="space-y-1 p-1">
+                                            <label className="text-[10px] font-bold text-orange-700 uppercase">Bulk Faculties (Excel)</label>
+                                            <div className="flex flex-col gap-2">
+                                                <input type="file" name="file" accept=".xlsx,.xls" className="w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 cursor-pointer" required />
+                                                <button type="submit" className="bg-orange-600 text-white text-[10px] py-1.5 rounded hover:bg-orange-700 font-bold transition">Upload</button>
                                             </div>
                                         </form>
 
                                         {/* Bulk Student */}
-                                        <form onSubmit={(e) => handleBulkUpload(e, 'student')} className="space-y-1">
-                                            <label className="text-xs font-semibold text-purple-700">Bulk Students (Excel)</label>
-                                            <div className="flex gap-2">
-                                                <input type="file" name="file" accept=".xlsx,.xls" className="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-purple-200 file:text-purple-700 hover:file:bg-purple-300" required />
-                                                <button type="submit" className="bg-purple-600 text-white text-xs px-2 py-1 rounded hover:bg-purple-700">Upload</button>
+                                        <form onSubmit={(e) => handleBulkUpload(e, 'student')} className="space-y-1 p-1">
+                                            <label className="text-[10px] font-bold text-orange-700 uppercase">Bulk Students (Excel)</label>
+                                            <div className="flex flex-col gap-2">
+                                                <input type="file" name="file" accept=".xlsx,.xls" className="w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 cursor-pointer" required />
+                                                <button type="submit" className="bg-orange-600 text-white text-[10px] py-1.5 rounded hover:bg-orange-700 font-bold transition">Upload</button>
                                             </div>
                                         </form>
                                     </div>
 
                                     {/* View Lists */}
-                                    <div className="mt-4 pt-4 border-t border-purple-200 flex gap-2">
+                                    <div className="mt-4 pt-4 border-t border-orange-200 flex gap-2">
                                         <button
                                             onClick={() => navigate('/hod/faculties')}
-                                            className="flex-1 bg-purple-600 text-white text-xs py-2 rounded hover:bg-purple-700 text-center"
+                                            className="flex-1 bg-orange-600 text-white text-xs py-2 rounded hover:bg-orange-700 text-center font-bold"
                                         >
                                             View Faculties
                                         </button>
                                         <button
                                             onClick={() => navigate('/hod/students')}
-                                            className="flex-1 bg-purple-600 text-white text-xs py-2 rounded hover:bg-purple-700 text-center"
+                                            className="flex-1 bg-orange-600 text-white text-xs py-2 rounded hover:bg-orange-700 text-center font-bold"
                                         >
                                             View Students
                                         </button>
@@ -925,11 +933,11 @@ const Dashboard = () => {
 
                                         {/* HOD: ASSIGN COORDINATOR */}
                                         {(user.role === 'hod' || user.role === 'admin') && (
-                                            <div className="bg-purple-50 border border-purple-200 rounded p-4">
-                                                <h4 className="text-sm font-bold text-purple-800 mb-2 uppercase tracking-wide">Add Coordinator</h4>
+                                            <div className="bg-orange-50 border border-orange-200 rounded p-4">
+                                                <h4 className="text-sm font-bold text-orange-800 mb-2 uppercase tracking-wide">Add Coordinator</h4>
                                                 <form onSubmit={handleAssignCoordinator} className="flex flex-col sm:flex-row gap-2">
                                                     <select
-                                                        className="flex-1 w-full text-sm border-gray-300 rounded p-2"
+                                                        className="flex-1 w-full text-sm border border-gray-300 rounded p-2 outline-none focus:ring-1 focus:ring-orange-500"
                                                         value={coordinatorId}
                                                         onChange={(e) => setCoordinatorId(e.target.value)}
                                                     >
@@ -940,12 +948,12 @@ const Dashboard = () => {
                                                     </select>
                                                     <button
                                                         type="submit"
-                                                        className="w-full sm:w-auto bg-purple-600 text-white text-xs px-4 py-2 rounded hover:bg-purple-700 font-medium whitespace-nowrap"
+                                                        className="w-full sm:w-auto bg-orange-600 text-white text-xs px-4 py-2 rounded hover:bg-orange-700 font-bold whitespace-nowrap transition"
                                                     >
                                                         Add
                                                     </button>
                                                 </form>
-                                                <p className="text-xs text-purple-600 mt-1">Current: {selectedCourse.coordinators?.map(c => c.name).join(', ') || 'None'}</p>
+                                                <p className="text-xs text-orange-600 mt-1 font-medium italic">Current: {selectedCourse.coordinators?.map(c => c.name).join(', ') || 'None'}</p>
                                             </div>
                                         )}
 
@@ -1096,9 +1104,9 @@ const Dashboard = () => {
                                                                         await axios.post(`${apiUrl}/api/enroll/${selectedCourse.id}/bulk`, formData, config);
                                                                         alert('Uploaded!'); fetchEnrolledStudents(selectedCourse.id); e.target.reset();
                                                                     } catch (err) { alert('Failed'); }
-                                                                }} className="flex flex-col sm:flex-row gap-2">
-                                                                    <input type="file" name="files" accept=".xlsx, .xls" className="flex-1 text-sm text-gray-500" required />
-                                                                    <button type="submit" className="text-xs border border-green-600 text-green-700 px-3 py-1 rounded hover:bg-green-50">Upload Excel</button>
+                                                                }} className="flex flex-col gap-2">
+                                                                    <input type="file" name="files" accept=".xlsx, .xls" className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-green-100 file:text-green-700 hover:file:bg-green-200 cursor-pointer" required />
+                                                                    <button type="submit" className="text-xs bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 font-bold transition-all shadow-sm">Upload Excel</button>
                                                                 </form>
                                                             </div>
                                                         </div>
@@ -1107,47 +1115,59 @@ const Dashboard = () => {
 
                                                     {/* Enrolled Student List Table */}
                                                     {enrolledStudents.length > 0 && (
-                                                        <div className="mt-4 max-h-60 overflow-y-auto overflow-x-auto border border-gray-200 rounded">
-                                                            <table className="w-full text-sm text-left">
-                                                                <thead className="bg-gray-100 text-gray-600 font-semibold sticky top-0">
-                                                                    <tr>
-                                                                        <th className="p-2">Name</th>
-                                                                        <th className="p-2">Email</th>
-                                                                        <th className="p-2">Section</th>
-                                                                        <th className="p-2 text-right">Action</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody className="divide-y divide-gray-100">
-                                                                    {enrolledStudents
-                                                                        .filter(student =>
-                                                                            student.name?.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
-                                                                            student.email.toLowerCase().includes(studentSearchQuery.toLowerCase())
-                                                                        )
-                                                                        .map(student => (
-                                                                            <tr key={student.id} className="hover:bg-gray-50">
-                                                                                <td className="p-2">{student.name || 'N/A'}</td>
-                                                                                <td className="p-2">{student.email}</td>
-                                                                                <td className="p-2">
-                                                                                    {/* Simple display, potentially editable later */}
-                                                                                    {student.Enrollment?.section || '-'}
-                                                                                </td>
-                                                                                <td className="p-2 text-right flex justify-end gap-2">
-                                                                                    {(user.role === 'admin' || user.role === 'hod' || selectedCourse.coordinators?.some(c => c.id === user.id)) && (
-                                                                                        <>
-                                                                                            <button onClick={() => setStudentToEdit(student)} className="text-blue-500 hover:underline">Edit</button>
-                                                                                            <button
-                                                                                                onClick={() => handleDeleteEnrollment(student.id, student.name || student.email)}
-                                                                                                className="text-red-500 hover:text-red-700"
-                                                                                            >
-                                                                                                <Trash2 size={14} />
-                                                                                            </button>
-                                                                                        </>
-                                                                                    )}
-                                                                                </td>
-                                                                            </tr>
-                                                                        ))}
-                                                                </tbody>
-                                                            </table>
+                                                        <div className="mt-4 border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                                                            <div className="max-h-72 overflow-y-auto overflow-x-auto">
+                                                                <table className="w-full text-sm text-left border-collapse">
+                                                                    <thead className="bg-gray-50 text-gray-600 font-bold sticky top-0 border-b border-gray-200 shadow-sm z-10">
+                                                                        <tr>
+                                                                            <th className="p-3 whitespace-nowrap">Name</th>
+                                                                            <th className="p-3 whitespace-nowrap">Email</th>
+                                                                            <th className="p-3 whitespace-nowrap">Section</th>
+                                                                            <th className="p-3 text-right whitespace-nowrap">Action</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody className="divide-y divide-gray-100">
+                                                                        {enrolledStudents
+                                                                            .filter(student =>
+                                                                                student.name?.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+                                                                                student.email.toLowerCase().includes(studentSearchQuery.toLowerCase())
+                                                                            )
+                                                                            .map(student => (
+                                                                                <tr key={student.id} className="hover:bg-gray-50 transition-colors">
+                                                                                    <td className="p-3 font-medium text-gray-800">{student.name || 'N/A'}</td>
+                                                                                    <td className="p-3 text-gray-500 max-w-[150px] truncate" title={student.email}>{student.email}</td>
+                                                                                    <td className="p-3">
+                                                                                        <span className="bg-gray-100 px-2 py-0.5 rounded text-xs text-gray-600 font-semibold border border-gray-200">
+                                                                                            {student.Enrollment?.section || '-'}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    <td className="p-3 text-right">
+                                                                                        <div className="flex justify-end items-center gap-1">
+                                                                                            {(user.role === 'admin' || user.role === 'hod' || selectedCourse.coordinators?.some(c => c.id === user.id)) && (
+                                                                                                <>
+                                                                                                    <button
+                                                                                                        onClick={() => setStudentToEdit(student)}
+                                                                                                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition"
+                                                                                                        title="Edit"
+                                                                                                    >
+                                                                                                        <Edit3 size={14} />
+                                                                                                    </button>
+                                                                                                    <button
+                                                                                                        onClick={() => handleDeleteEnrollment(student.id, student.name || student.email)}
+                                                                                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
+                                                                                                        title="Remove"
+                                                                                                    >
+                                                                                                        <Trash2 size={14} />
+                                                                                                    </button>
+                                                                                                </>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
                                                         </div>
                                                     )}
 

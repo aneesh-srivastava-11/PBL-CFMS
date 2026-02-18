@@ -78,14 +78,14 @@ const UserList = ({ type }) => {
                                 <button onClick={() => navigate('/')} className="p-2 hover:bg-gray-100 rounded-full">
                                     <ArrowLeft size={20} />
                                 </button>
-                                <h2 className="text-xl font-bold text-gray-800 border-l-4 border-purple-600 pl-3">{title}</h2>
+                                <h2 className="text-xl font-bold text-gray-800 border-l-4 border-orange-600 pl-3">{title}</h2>
                             </div>
                             <div className="relative w-full md:w-auto">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                                 <input
                                     type="text"
                                     placeholder="Search name or email..."
-                                    className="pl-9 pr-4 py-2 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-full md:w-64"
+                                    className="pl-9 pr-4 py-2 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 w-full md:w-64"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
@@ -94,7 +94,7 @@ const UserList = ({ type }) => {
 
                         {/* Table */}
                         {loading ? (
-                            <div className="flex justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div></div>
+                            <div className="flex justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div></div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm text-left">
@@ -110,7 +110,7 @@ const UserList = ({ type }) => {
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
                                         {filteredUsers.map(u => (
-                                            <tr key={u.id} className="hover:bg-purple-50 transition-colors">
+                                            <tr key={u.id} className="hover:bg-orange-50 transition-colors">
                                                 {editingId === u.id ? (
                                                     <>
                                                         <td className="p-3"><input className="border p-1 rounded w-full" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} /></td>

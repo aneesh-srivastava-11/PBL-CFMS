@@ -19,8 +19,8 @@ const ExemplarPanel = ({ exemplarSubmissions, onDownloadSubmission, onToggleFeat
 
     return (
         <div className="bg-white rounded-lg shadow-sm p-6">
-            <h3 className="font-bold text-lg text-gray-800 border-l-4 border-purple-500 pl-3 mb-4">
-                <Award className="inline h-5 w-5 mr-2 text-purple-600" />
+            <h3 className="font-bold text-lg text-gray-800 border-l-4 border-orange-500 pl-3 mb-4">
+                <Award className="inline h-5 w-5 mr-2 text-orange-600" />
                 Exemplar Submissions
             </h3>
 
@@ -28,7 +28,7 @@ const ExemplarPanel = ({ exemplarSubmissions, onDownloadSubmission, onToggleFeat
                 {Object.entries(groupedByAssignment).map(([assignmentId, { assignment, submissions }]) => (
                     <div key={assignmentId} className="border border-gray-200 rounded-lg p-4">
                         <div className="flex items-center gap-2 mb-4">
-                            <FileText className="h-5 w-5 text-purple-600" />
+                            <FileText className="h-5 w-5 text-orange-600" />
                             <h4 className="font-semibold text-gray-800">{assignment?.filename || 'Assignment'}</h4>
                         </div>
 
@@ -64,8 +64,8 @@ const ExemplarPanel = ({ exemplarSubmissions, onDownloadSubmission, onToggleFeat
                                         <button
                                             onClick={() => onToggleFeatured(sub.id, !sub.is_featured_exemplar)}
                                             className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold transition-colors ${sub.is_featured_exemplar
-                                                    ? 'bg-orange-100 text-orange-700 border border-orange-300'
-                                                    : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-orange-50'
+                                                ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                                : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-orange-50'
                                                 }`}
                                             title={sub.is_featured_exemplar ? "Remove from course file" : "Add to course file"}
                                         >
@@ -78,7 +78,7 @@ const ExemplarPanel = ({ exemplarSubmissions, onDownloadSubmission, onToggleFeat
 
                                         <button
                                             onClick={() => onDownloadSubmission(sub.id, sub.filename)}
-                                            className="text-xs text-purple-600 hover:underline flex items-center gap-1"
+                                            className="text-xs text-orange-600 hover:underline flex items-center gap-1"
                                         >
                                             <Download size={12} />
                                             Download
