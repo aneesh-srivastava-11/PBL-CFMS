@@ -1001,9 +1001,26 @@ const Dashboard = () => {
                                             <div className="bg-orange-50 border border-orange-100 rounded p-4 mb-6">
                                                 <h4 className="text-sm font-bold text-orange-800 mb-3 uppercase tracking-wide">Upload Document</h4>
                                                 <form onSubmit={handleFileUpload} className="flex flex-col md:flex-row gap-3 items-stretch md:items-end">
-                                                    <div className="flex-1 w-full">
+                                                    <div className="flex-1 w-full relative">
                                                         <label className="text-xs font-semibold text-gray-500 mb-1 block">File</label>
-                                                        <input type="file" className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200" onChange={e => setFile(e.target.files[0])} required />
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="relative overflow-hidden inline-block">
+                                                                <button type="button" className="bg-orange-100 text-orange-700 text-xs font-bold py-2 px-4 rounded-full hover:bg-orange-200 transition-colors border border-orange-200">
+                                                                    Choose File
+                                                                </button>
+                                                                <input
+                                                                    type="file"
+                                                                    className="absolute left-0 top-0 opacity-0 cursor-pointer w-full h-full"
+                                                                    onChange={e => setFile(e.target.files[0])}
+                                                                    required
+                                                                />
+                                                            </div>
+                                                            {file && (
+                                                                <span className="text-xs text-gray-600 truncate max-w-[120px] bg-white border border-gray-200 px-2 py-1 rounded shadow-sm" title={file.name}>
+                                                                    {file.name}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
 
                                                     {/* File Type Selector */}
