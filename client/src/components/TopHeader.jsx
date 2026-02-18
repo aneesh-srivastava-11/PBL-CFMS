@@ -12,7 +12,7 @@ export default function TopHeader({ user }) {
                 <Link to="/profile" className="flex items-center space-x-3 pl-6 border-l border-gray-200 hover:bg-gray-50 transition p-2 rounded-lg">
                     <div className="text-right hidden md:block">
                         <div className="text-sm font-bold text-orange-600">
-                            {user?.id || 'ID: 2427030086'} <span className="text-gray-400 mx-1">=</span> <span className="text-gray-800 uppercase">{user?.name}</span>
+                            <span className="text-gray-800 uppercase">{user?.name}</span>
                         </div>
                         <div className="text-xs text-gray-500 uppercase">{user?.role}</div>
                     </div>
