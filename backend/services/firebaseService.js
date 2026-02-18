@@ -43,3 +43,23 @@ exports.createFirebaseUser = async (email, password, displayName) => {
         throw error;
     }
 };
+
+/**
+ * Deletes a user from Firebase Authentication.
+ * 
+ * @param {string} uid - The Firebase UID of the user to delete
+ * @returns {Promise<void>}
+ */
+exports.deleteFirebaseUser = async (uid) => {
+    try {
+        await admin.auth().deleteUser(uid);
+        logger.info(`[Firebase] Successfully deleted user with UID: ${uid}`);
+    } catch (error) {
+        if (error.code === 'auth/user-not-found') {
+            logger.warn(`[Firebase] User with UID ${uid} not found in Firebase. Skipping.`);
+            return;
+        }
+        logger.error(`[Firebase] Error deleting user ${uid}: ${error.message}`);
+        throw error;
+    }
+};

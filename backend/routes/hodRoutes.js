@@ -43,5 +43,6 @@ expressRouter.post('/users',
 );
 expressRouter.get('/students', require('../controllers/hodController').getAllStudents);
 expressRouter.put('/users/:id', require('../controllers/hodController').updateUser);
+expressRouter.delete('/users/:id', require('../controllers/hodController').deleteUser);
 
 module.exports = expressRouter;
