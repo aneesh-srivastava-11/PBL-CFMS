@@ -4,7 +4,7 @@ import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
 import TopHeader from '../components/TopHeader';
-import { ArrowLeft, Search, Edit2, Save, X } from 'lucide-react';
+import { ArrowLeft, Search, Edit2, Save, X, Trash } from 'lucide-react';
 
 const UserList = ({ type }) => {
     const { user, logout } = useContext(AuthContext);
@@ -56,6 +56,22 @@ const UserList = ({ type }) => {
         } catch (error) {
             console.error('Update failed', error);
             alert('Failed to update user');
+        }
+    };
+
+    const handleDelete = async (userToDelete) => {
+        if (!window.confirm(`Are you sure you want to delete ${userToDelete.name}? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.delete(`${apiUrl}/api/hod/users/${userToDelete.id}`, config);
+            alert('User deleted successfully');
+            fetchUsers();
+        } catch (error) {
+            console.error('Delete failed', error);
+            alert(error.response?.data?.message || 'Failed to delete user');
         }
     };
 
@@ -130,9 +146,12 @@ const UserList = ({ type }) => {
                                                         {type === 'student' && <td className="p-3">{u.academic_semester}</td>}
                                                         {type === 'student' && <td className="p-3">{u.section}</td>}
                                                         <td className="p-3 text-gray-500">{u.phone_number || '-'}</td>
-                                                        <td className="p-3 text-right">
+                                                        <td className="p-3 text-right flex justify-end gap-2">
                                                             <button onClick={() => handleEdit(u)} className="text-blue-500 hover:bg-blue-100 p-1 rounded transition">
                                                                 <Edit2 size={16} />
+                                                            </button>
+                                                            <button onClick={() => handleDelete(u)} className="text-red-500 hover:bg-red-100 p-1 rounded transition">
+                                                                <Trash size={16} />
                                                             </button>
                                                         </td>
                                                     </>
