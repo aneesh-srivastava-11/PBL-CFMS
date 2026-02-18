@@ -38,7 +38,7 @@ const Profile = () => {
                                         <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 flex-shrink-0">
                                             <Phone size={16} />
                                         </div>
-                                        <span className="text-sm break-all">{user?.phone || 'N/A'}</span>
+                                        <span className="text-sm break-all">{user?.phone_number || 'N/A'}</span>
                                     </div>
                                     <div className="flex items-center space-x-3 text-gray-600">
                                         <div className="h-8 w-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 flex-shrink-0">
@@ -59,7 +59,11 @@ const Profile = () => {
                                 <div>
                                     <label className="block text-xs text-gray-500 font-medium uppercase mb-1">Registration No</label>
                                     <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50 text-gray-700 text-sm break-words">
-                                        {user?.id ? user.id : 'N/A'}
+                                        {(() => {
+                                            if (!user?.email) return 'N/A';
+                                            const match = user.email.split('@')[0].match(/\d+/);
+                                            return match ? match[0] : 'N/A';
+                                        })()}
                                     </div>
                                 </div>
 
@@ -99,7 +103,7 @@ const Profile = () => {
                                 <div>
                                     <label className="block text-xs text-gray-500 font-medium uppercase mb-1">Batch</label>
                                     <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50 text-gray-700 text-sm">
-                                        BATCH-1
+                                        N/A
                                     </div>
                                 </div>
 
@@ -107,7 +111,7 @@ const Profile = () => {
                                 <div>
                                     <label className="block text-xs text-gray-500 font-medium uppercase mb-1">Gender</label>
                                     <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50 text-gray-700 text-sm">
-                                        Male
+                                        N/A
                                     </div>
                                 </div>
 
@@ -115,32 +119,32 @@ const Profile = () => {
                                 <div>
                                     <label className="block text-xs text-gray-500 font-medium uppercase mb-1">Mobile No.</label>
                                     <div className="border border-gray-200 rounded px-3 py-2 bg-gray-50 text-gray-700 text-sm break-all">
-                                        {user?.phone || 'N/A'}
+                                        {user?.phone_number || 'N/A'}
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Coordinator Table */}
-                            <div className="mt-8 border rounded-lg overflow-hidden overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        <tr>
-                                            <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">1</td>
-                                            <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-700">Class Coordinator</td>
-                                            <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-700">Mr. Tarun Jain</td>
-                                            <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">tarun.jain@jaipur.manipal.edu</td>
-                                        </tr>
-                                        <tr>
-                                            <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">2</td>
-                                            <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-700">Student Mentor</td>
-                                            <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-700"></td>
-                                            <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500"></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
                         </div>
+
+                        {/* Coordinator Table */}
+                        <div className="mt-8 border rounded-lg overflow-hidden overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">1</td>
+                                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-700">Class Coordinator</td>
+                                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-700">N/A</td>
+                                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">N/A</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">2</td>
+                                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-700">Student Mentor</td>
+                                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-700"></td>
+                                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
                     </div>
                 </main>
             </div>
