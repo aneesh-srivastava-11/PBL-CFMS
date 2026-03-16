@@ -28,6 +28,7 @@ const Dashboard = () => {
     const [missingFiles, setMissingFiles] = useState([]);
     const [validationData, setValidationData] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [pdfJob, setPdfJob] = useState(null); // Track BG job
     const [expandedFolders, setExpandedFolders] = useState({}); // Folder State
     const [enrolledStudents, setEnrolledStudents] = useState([]); // Enrolled Students State
     const [studentSearchQuery, setStudentSearchQuery] = useState(''); // Search filter
@@ -82,7 +83,8 @@ const Dashboard = () => {
     useEffect(() => {
         if (!user) return; // Safeguard against null user
         if (selectedCourse) {
-            fetchCourseFiles(selectedCourse.id);
+            // Use aggregated endpoint for files, sections, and metadata
+            fetchCourseDashboard(selectedCourse.id);
 
             // If Coordinator/HOD/Admin OR Faculty (Instructor), fetch enrollment
             const isCoord = selectedCourse.coordinators?.some(c => c.id === user.id);
@@ -90,17 +92,14 @@ const Dashboard = () => {
                 fetchEnrolledStudents(selectedCourse.id);
             }
 
-            // If HOD/Admin/Coordinator, fetch sections for management
-            if (user.role === 'hod' || user.role === 'admin' || user.is_coordinator || isCoord) {
-                fetchSections(selectedCourse.id);
-                // Ensure faculties are loaded for assignment dropdowns
-                if ((user.role === 'hod' || user.role === 'admin' || user.is_coordinator || isCoord) && faculties.length === 0) {
-                    fetchFaculties();
-                }
+            // Ensure faculties are loaded for assignment dropdowns
+            if ((user.role === 'hod' || user.role === 'admin' || user.is_coordinator || isCoord) && faculties.length === 0) {
+                fetchFaculties();
             }
         } else {
             setCourseFiles([]);
             setEnrolledStudents([]);
+            setSections([]);
         }
     }, [selectedCourse, user]);
 
@@ -128,6 +127,18 @@ const Dashboard = () => {
             }
         } catch (error) {
             console.error('Error fetching courses', error);
+        }
+    };
+
+    const fetchCourseDashboard = async (courseId) => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get(`${apiUrl}/api/courses/${courseId}/dashboard`, config);
+            setCourseFiles(data.files || []);
+            setSections(data.sections || []);
+            setValidationData(data.fileStatus || null);
+        } catch (error) {
+            console.error('Error fetching course dashboard', error);
         }
     };
 
@@ -462,35 +473,51 @@ const Dashboard = () => {
     // Smart Generate: Step 2 - Actual Download (Called from Modal)
     const handleDownloadPDF = async () => {
         if (!selectedCourse) return;
-        // Close modal immediately or keep it open? User preference usually to keep open until done or close.
-        // Let's keep it open but show loading state if possible, or just close it. 
-        // For now, let's close it to avoid double-clicks, or disable button.
 
         try {
-            const config = {
-                headers: { Authorization: `Bearer ${user.token}` },
-                responseType: 'arraybuffer'
-            };
-            const response = await axios.post(
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            // Start Background Job
+            const { data } = await axios.post(
                 `${apiUrl}/api/courses/${selectedCourse.id}/generate-pdf`,
-                {}, // No force needed, backend handles it
+                {},
                 config
             );
 
-            const blob = new Blob([response.data], { type: 'application/pdf' });
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `${selectedCourse.course_code}_CourseFile.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
+            setPdfJob({ id: data.jobId, progress: 0 });
 
-            // Close modal after success
-            setShowValidationModal(false);
+            // Start Polling
+            const pollInterval = setInterval(async () => {
+                try {
+                    const statusRes = await axios.get(`${apiUrl}/api/courses/pdf-status/${data.jobId}`, config);
+                    
+                    setPdfJob({ id: data.jobId, progress: statusRes.data.progress });
+
+                    if (statusRes.data.state === 'completed') {
+                        clearInterval(pollInterval);
+                        setPdfJob(null);
+                        setShowValidationModal(false);
+                        
+                        // Download the file via Presigned URL
+                        if (statusRes.data.downloadUrl) {
+                            window.open(statusRes.data.downloadUrl, '_blank');
+                        } else if (statusRes.data.localPath) {
+                            alert(`File saved locally by worker at: ${statusRes.data.localPath}`);
+                        }
+                    } else if (statusRes.data.state === 'failed') {
+                        clearInterval(pollInterval);
+                        setPdfJob(null);
+                        alert('PDF generation job failed. Please try again.');
+                    }
+                } catch (err) {
+                    console.error('Polling error', err);
+                    clearInterval(pollInterval);
+                    setPdfJob(null);
+                }
+            }, 2000);
+
         } catch (error) {
-            console.error('Download PDF failed', error);
-            alert('Failed to download PDF.');
+            console.error('PDF Generation failed', error);
+            alert('Failed to start PDF generation task.');
         }
     };
 

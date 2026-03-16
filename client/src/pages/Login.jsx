@@ -4,7 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { auth } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail } from 'firebase/auth';
 
-import bgImage from '../assets/image.png';
+import bgImage from '../assets/image.jpg';
 import mujLogo from '../assets/Manipal_University_Jaipur_logo.png';
 
 

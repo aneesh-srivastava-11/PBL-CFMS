@@ -58,6 +58,16 @@ const getPresignedUploadUrl = async (key, contentType) => {
 
     const url = await getSignedUrl(s3, command, { expiresIn: 300 }); // 5 minutes
     return url;
+}; // Restoring the closing brace that was accidentally deleted
+
+const getPresignedDownloadUrl = async (key) => {
+    const command = new GetObjectCommand({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: key
+    });
+    const url = await getSignedUrl(s3, command, { expiresIn: 3600 }); // 1 hour
+    return url;
 };
 
-module.exports = { uploadFile, getFileStream, deleteFile, getPresignedUploadUrl };
+module.exports = { uploadFile, getFileStream, deleteFile, getPresignedUploadUrl, getPresignedDownloadUrl, s3 };
+

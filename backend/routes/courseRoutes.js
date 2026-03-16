@@ -23,10 +23,12 @@ router.route('/:id')
     .delete(protect, authorize('admin', 'hod'), require('../controllers/courseController').deleteCourse);
 
 router.get('/:id/download', protect, authorize('admin', 'faculty', 'reviewer', 'hod'), require('../controllers/courseController').downloadCourseZip);
+router.get('/:id/dashboard', protect, require('../controllers/courseController').getCourseDashboard);
 router.get('/:id/validate-debug', require('../controllers/courseController').validateCourseFilesHandler); // Public debug route
 router.get('/:id/validate-files', protect, require('../controllers/courseController').validateCourseFilesHandler);
 router.get('/:id/file-status', protect, authorize('admin', 'faculty', 'hod'), require('../controllers/courseController').getCourseFileStatus);
-router.post('/:id/generate-pdf', protect, authorize('admin', 'faculty', 'hod'), require('../controllers/courseController').generateCoursePDF);
+router.get('/pdf-status/:jobId', protect, require('../controllers/courseController').getPDFStatus);
+router.post('/:id/generate-pdf', protect, authorize('admin', 'faculty', 'hod'), require('../controllers/courseController').enqueueCoursePDF);
 
 
 

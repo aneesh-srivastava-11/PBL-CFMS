@@ -3,6 +3,9 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
+// PERFORMANCE NOTE: For Serverless Vercel deployments, ensure that DATABASE_URL 
+// uses a connection pooler like PgBouncer (e.g., Supabase Session/Transaction pooler port 6543)
+// to prevent exhausting DB connections on cold boots.
 const sequelize = process.env.DATABASE_URL
     ? new Sequelize(process.env.DATABASE_URL, {
         dialect: 'postgres',
