@@ -41,6 +41,7 @@ app.use(limiter);
 // CORS Configuration - Allow frontend origins
 const allowedOrigins = [
     'http://localhost:5173',
+    'http://localhost:4173',
     'http://localhost:3000',
     'https://pbl-cfms-frontend.vercel.app',
     'https://pbl-cfms.vercel.app'
