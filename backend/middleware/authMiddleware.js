@@ -3,10 +3,10 @@ const User = require('../models/userModel');
 const logger = require('../utils/logger');
 const { LRUCache } = require('lru-cache');
 
-// Initialize cache: Max 500 users, 10 minutes TTL
+// Initialize cache: Max 500 users, 2 minutes TTL
 const userCache = new LRUCache({
     max: 500,
-    ttl: 1000 * 60 * 10, // 10 Minutes
+    ttl: 1000 * 60 * 2, // 2 Minutes
 });
 
 const protect = async (req, res, next) => {

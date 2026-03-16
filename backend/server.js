@@ -73,6 +73,11 @@ app.get('/', (req, res) => {
     res.send('API is running...');
 });
 
+// Warmup Endpoint for keeping Serverless function alive
+app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/files', require('./routes/fileRoutes'));
 app.use('/api/courses', require('./routes/courseRoutes'));

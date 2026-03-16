@@ -65,35 +65,19 @@ exports.assignInstructorToSection = asyncHandler(async (req, res) => {
 
     const targetSection = section.trim().toLowerCase();
 
-    // 1. Find all students
+    // 1. Find all students matching this section via database query (table scan avoided)
+    const { Op } = require('sequelize');
     const allStudents = await User.findAll({
-        where: { role: 'student' },
+        where: { 
+            role: 'student',
+            section: {
+                [Op.iLike]: targetSection // PostgreSQL case-insensitive match
+            } 
+        },
         attributes: ['id', 'name', 'email', 'section']
     });
 
-    logger.debug(`[AutoEnroll] Total students in database: ${allStudents.length}`);
-
-    // 2. Filter in memory for case-insensitive match with NULL-safe checks
-    const studentsInSection = allStudents.filter(s => {
-        // Defensive NULL/empty check
-        if (!s.section || typeof s.section !== 'string') {
-            return false;
-        }
-
-        const studentSection = s.section.trim();
-        if (!studentSection) {
-            return false; // Skip empty or whitespace-only sections
-        }
-
-        const match = studentSection.toLowerCase() === targetSection;
-
-        if (match) {
-            logger.debug(`[AutoEnroll] Match found: ${s.email} (section: '${s.section}')`);
-        }
-
-        return match;
-    });
-
+    const studentsInSection = allStudents; // Variable retained for consistent downstream logic
     logger.info(`[AutoEnroll] Found ${studentsInSection.length} matching students for section '${targetSection}'.`);
 
     // 3. Enroll them
