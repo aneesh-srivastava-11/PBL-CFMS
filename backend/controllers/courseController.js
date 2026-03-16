@@ -285,13 +285,16 @@ exports.getCourseFileStatus = asyncHandler(async (req, res) => {
 });
 
 exports.enqueueCoursePDF = asyncHandler(async (req, res) => {
+    console.log('[DEBUG] enqueueCoursePDF Start');
     const courseId = req.params.id;
     const { pdfQueue } = require('../services/pdfQueue');
 
+    console.log('[DEBUG] Fetching course:', courseId);
     const course = await Course.findByPk(courseId, {
         include: [{ model: User, as: 'coordinators', attributes: ['id'] }]
     });
 
+    console.log('[DEBUG] Course fetched:', !!course);
     if (!course) {
         res.status(404);
         throw new Error('Course not found');
@@ -303,6 +306,7 @@ exports.enqueueCoursePDF = asyncHandler(async (req, res) => {
         throw new Error('Only the assigned Course Coordinator, HOD, or Admin can generate files for this course.');
     }
 
+    console.log('[DEBUG] Adding job to BullMQ...');
     // Add job to Queue
     const job = await pdfQueue.add('generate-pdf', {
         courseId,
@@ -310,6 +314,7 @@ exports.enqueueCoursePDF = asyncHandler(async (req, res) => {
         userName: req.user.name
     });
 
+    console.log('[DEBUG] Job added successfully:', job.id);
     res.status(202).json({ jobId: job.id, message: 'PDF generation queued' });
 });
 

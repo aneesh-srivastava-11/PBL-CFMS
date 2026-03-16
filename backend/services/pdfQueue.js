@@ -4,7 +4,13 @@ const connection = {
     host: process.env.REDIS_HOST || '127.0.0.1',
     port: process.env.REDIS_PORT || 6379,
     password: process.env.REDIS_PASSWORD || undefined,
-    tls: process.env.REDIS_TLS === 'true' ? {} : undefined, // Useful for managed Redis like Upstash
+    tls: process.env.REDIS_TLS === 'true' ? {} : undefined,
+    // Upstash Serverless Optimizations
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+    connectTimeout: 10000,
+    disconnectTimeout: 10000,
+    family: 0 // Allow IPv6 / IPv4 flexibility for Vercel
 };
 
 const pdfQueue = new Queue('pdf-generation', { connection });
