@@ -161,7 +161,8 @@ console.log('[Worker] PDF Generation worker started');
 // We spin up a dummy Express server here so Render doesn't kill the worker process.
 const express = require('express');
 const app = express();
-const port = process.env.PORT || 10000;
+// Use the Render-provided port in production, or 10000 locally to avoid clashing with the API on 5000
+const port = process.env.RENDER ? process.env.PORT : 10000;
 
 app.get('/', (req, res) => {
     res.send('CFMS PDF Background Worker is actively listening for jobs!');
