@@ -28,7 +28,21 @@ router.get('/:id/validate-debug', require('../controllers/courseController').val
 router.get('/:id/validate-files', protect, require('../controllers/courseController').validateCourseFilesHandler);
 router.get('/:id/file-status', protect, authorize('admin', 'faculty', 'hod'), require('../controllers/courseController').getCourseFileStatus);
 router.get('/pdf-status/:jobId', protect, require('../controllers/courseController').getPDFStatus);
-router.post('/:id/generate-pdf', protect, authorize('admin', 'faculty', 'hod'), require('../controllers/courseController').enqueueCoursePDF);
+
+// Debug: Check if enqueueCoursePDF is actually exported
+const _enqueueCoursePDF = require('../controllers/courseController').enqueueCoursePDF;
+console.log('[ROUTE DEBUG] enqueueCoursePDF type:', typeof _enqueueCoursePDF);
+
+// Debug route: GET to test if the path itself is reachable
+router.get('/:id/generate-pdf-debug', (req, res) => {
+    res.json({
+        message: 'generate-pdf route IS reachable',
+        handlerExists: typeof _enqueueCoursePDF === 'function',
+        courseId: req.params.id
+    });
+});
+
+router.post('/:id/generate-pdf', protect, authorize('admin', 'faculty', 'hod'), _enqueueCoursePDF);
 
 
 
