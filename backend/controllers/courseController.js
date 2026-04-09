@@ -415,12 +415,12 @@ exports.validateCourseFilesHandler = asyncHandler(async (req, res) => {
 exports.getCourseDashboard = asyncHandler(async (req, res) => {
     const courseId = req.params.id;
     const { CourseSection, User, File, Enrollment } = require('../models');
-    
+
     const course = await Course.findByPk(courseId, {
-        include: [{ 
-            model: User, 
-            as: 'coordinators', 
-            attributes: ['id','name','email','phone_number'],
+        include: [{
+            model: User,
+            as: 'coordinators',
+            attributes: ['id', 'name', 'email', 'phone_number'],
             through: { attributes: [] }
         }]
     });
@@ -433,11 +433,11 @@ exports.getCourseDashboard = asyncHandler(async (req, res) => {
     const [sections, files, studentCount] = await Promise.all([
         CourseSection.findAll({
             where: { course_id: courseId },
-            include: [{ model: User, as: 'instructor', attributes: ['id','name','email'] }]
+            include: [{ model: User, as: 'instructor', attributes: ['id', 'name', 'email'] }]
         }),
-        File.findAll({ 
-            where: { course_id: courseId }, 
-            attributes: ['id','filename','file_type','uploaded_at','is_visible','section', 's3_key'] 
+        File.findAll({
+            where: { course_id: courseId },
+            attributes: ['id', 'filename', 'file_type', 'uploaded_at', 'is_visible', 'section', 's3_key']
         }),
         req.user.role === 'student' ? Promise.resolve(0) : Enrollment.count({ where: { course_id: courseId } })
     ]);
@@ -455,7 +455,7 @@ exports.getCourseDashboard = asyncHandler(async (req, res) => {
             validationResult.valid = validationResult.missing.length === 0;
         }
     }
-    
+
     const fileStatus = {
         valid: validationResult.valid,
         totalRequired: validationResult.totalRequired,
