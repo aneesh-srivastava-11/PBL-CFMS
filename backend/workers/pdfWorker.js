@@ -5,12 +5,14 @@ const { Course, File, Enrollment, User } = require('../models');
 const { PDFDocument, rgb } = require('pdf-lib');
 const { getFileStream, s3 } = require('../utils/s3');
 const { Upload } = require('@aws-sdk/lib-storage');
+const { PutObjectCommand } = require('@aws-sdk/client-s3');
 const fsPromises = require('fs').promises;
 const path = require('path');
 const os = require('os');
 const { REQUIRED_FILES_THEORY, REQUIRED_FILES_LAB } = require('../utils/courseFileValidation');
 
 const pdfWorker = new Worker('pdf-generation', async job => {
+    const startTime = Date.now();
     const { courseId, userName } = job.data;
     
     await job.updateProgress(5);
@@ -22,6 +24,8 @@ const pdfWorker = new Worker('pdf-generation', async job => {
     const allFiles = await File.findAll({ where: { course_id: courseId } });
     const requiredList = (course.course_type === 'lab') ? REQUIRED_FILES_LAB : REQUIRED_FILES_THEORY;
 
+    console.log(`[Worker] DB queries done in ${Date.now() - startTime}ms`);
+
     const mergedPdf = await PDFDocument.create();
     
     // Title Page
@@ -32,13 +36,42 @@ const pdfWorker = new Worker('pdf-generation', async job => {
     titlePage.drawText(`Faculty/Coordinator: ${userName}`, { x: 50, y: height - 180, size: 12 });
 
     await job.updateProgress(10);
-    const progressStep = 80 / requiredList.length;
 
-    // To prevent timeout and optimize, we can download S3 files in parallel
-    // but we must merge them sequentially. 
+    // PRE-FETCH: Download all matched S3 files in parallel BEFORE the loop
+    const prefetchStart = Date.now();
+    const fileBufferMap = new Map();
+    
+    if (process.env.AWS_BUCKET_NAME) {
+        const filesToFetch = allFiles.filter(f => f.s3_key);
+        const fetchPromises = filesToFetch.map(async (file) => {
+            try {
+                const stream = await getFileStream(file.s3_key);
+                const chunks = [];
+                for await (const chunk of stream) chunks.push(chunk);
+                fileBufferMap.set(file.id, Buffer.concat(chunks));
+            } catch (err) {
+                console.error(`[Worker] Failed to prefetch ${file.filename}:`, err.message);
+            }
+        });
+        await Promise.all(fetchPromises);
+    } else {
+        // Local storage
+        for (const file of allFiles) {
+            try {
+                const filePath = path.join(os.tmpdir(), file.s3_key);
+                await fsPromises.access(filePath);
+                fileBufferMap.set(file.id, await fsPromises.readFile(filePath));
+            } catch (err) { /* skip missing */ }
+        }
+    }
+    console.log(`[Worker] Prefetched ${fileBufferMap.size} files in ${Date.now() - prefetchStart}ms`);
+
+    await job.updateProgress(40);
+
+    // Process all required items (now using prefetched buffers - no more S3 calls)
+    const processStart = Date.now();
     for (const [index, requiredItem] of requiredList.entries()) {
         const itemNumber = index + 1;
-        await job.updateProgress(10 + Math.floor(index * progressStep));
 
         // Auto-Generate Student List
         if (requiredItem.toLowerCase().includes('name list of students')) {
@@ -55,7 +88,6 @@ const pdfWorker = new Worker('pdf-generation', async job => {
 
             currentListPage.drawText(`${itemNumber}. ${requiredItem}`, { x: 50, y, size: 14, color: rgb(0, 0, 0.8) });
             y -= 30;
-            // Embed font conditionally to save performance
             const fontBold = await mergedPdf.embedFont('Helvetica-Bold');
             const fontRegular = await mergedPdf.embedFont('Helvetica');
 
@@ -80,27 +112,16 @@ const pdfWorker = new Worker('pdf-generation', async job => {
             continue;
         }
 
-        // Standard File Merge
+        // Standard File Merge (using prefetched buffers)
         const matchedFile = allFiles.find(file => {
             const reqNormalized = requiredItem.toLowerCase().trim();
             const uploadedNormalized = (file.filename || '').toLowerCase().trim();
             return uploadedNormalized.includes(reqNormalized) || reqNormalized.includes(uploadedNormalized) || (file.file_type && reqNormalized.includes(file.file_type.replace(/_/g, ' ').toLowerCase()));
         });
 
-        if (matchedFile) {
+        if (matchedFile && fileBufferMap.has(matchedFile.id)) {
             try {
-                let fileBuffer;
-                if (process.env.AWS_BUCKET_NAME) {
-                    const stream = await getFileStream(matchedFile.s3_key);
-                    const chunks = [];
-                    for await (const chunk of stream) chunks.push(chunk);
-                    fileBuffer = Buffer.concat(chunks);
-                } else {
-                    const filePath = path.join(os.tmpdir(), matchedFile.s3_key);
-                    await fsPromises.access(filePath);
-                    fileBuffer = await fsPromises.readFile(filePath);
-                }
-
+                const fileBuffer = fileBufferMap.get(matchedFile.id);
                 const ext = matchedFile.filename.split('.').pop().toLowerCase();
                 if (ext === 'pdf') {
                     const pdfToMerge = await PDFDocument.load(fileBuffer);
@@ -126,30 +147,48 @@ const pdfWorker = new Worker('pdf-generation', async job => {
             placeholder.drawText(`(File Not Uploaded)`, { x: 50, y: height - 100, size: 12, color: rgb(0.5, 0.5, 0.5) });
         }
     }
+    console.log(`[Worker] PDF assembly done in ${Date.now() - processStart}ms`);
 
-    await job.updateProgress(90);
+    await job.updateProgress(80);
 
     const pdfBytes = await mergedPdf.save();
     const finalFilename = `generated_pdfs/${course.course_code}_${Date.now()}.pdf`;
 
+    const uploadStart = Date.now();
     if (process.env.AWS_BUCKET_NAME) {
-        const upload = new Upload({
-            client: s3,
-            params: {
+        // Use simple PutObject for small-medium PDFs (faster than multipart Upload)
+        const pdfBuffer = Buffer.from(pdfBytes);
+        if (pdfBuffer.length < 50 * 1024 * 1024) { // < 50MB: use simple put
+            await s3.send(new PutObjectCommand({
                 Bucket: process.env.AWS_BUCKET_NAME,
                 Key: finalFilename,
-                Body: Buffer.from(pdfBytes),
+                Body: pdfBuffer,
                 ContentType: 'application/pdf',
                 ContentDisposition: `attachment; filename="${course.course_code}_CourseFile.pdf"`
-            }
-        });
-        await upload.done();
+            }));
+        } else {
+            // Large file: use multipart upload
+            const upload = new Upload({
+                client: s3,
+                params: {
+                    Bucket: process.env.AWS_BUCKET_NAME,
+                    Key: finalFilename,
+                    Body: pdfBuffer,
+                    ContentType: 'application/pdf',
+                    ContentDisposition: `attachment; filename="${course.course_code}_CourseFile.pdf"`
+                }
+            });
+            await upload.done();
+        }
+        console.log(`[Worker] S3 upload done in ${Date.now() - uploadStart}ms`);
         await job.updateProgress(100);
+        console.log(`[Worker] TOTAL TIME: ${Date.now() - startTime}ms`);
         return { fileKey: finalFilename, isLocal: false };
     } else {
         const localPath = path.join(os.tmpdir(), finalFilename.replace('/', '_'));
         await fsPromises.writeFile(localPath, pdfBytes);
         await job.updateProgress(100);
+        console.log(`[Worker] TOTAL TIME: ${Date.now() - startTime}ms`);
         return { fileKey: localPath, isLocal: true };
     }
 }, { connection });
@@ -157,11 +196,8 @@ const pdfWorker = new Worker('pdf-generation', async job => {
 console.log('[Worker] PDF Generation worker started');
 
 // --- RENDER FREE TIER HACK ---
-// Render "Web Services" require a port to be bound to consider the deployment "healthy".
-// We spin up a dummy Express server here so Render doesn't kill the worker process.
 const express = require('express');
 const app = express();
-// Use the Render-provided port in production, or 10000 locally to avoid clashing with the API on 5000
 const port = process.env.RENDER ? process.env.PORT : 10000;
 
 app.get('/', (req, res) => {

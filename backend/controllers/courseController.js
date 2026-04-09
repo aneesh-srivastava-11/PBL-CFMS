@@ -308,14 +308,23 @@ exports.enqueueCoursePDF = asyncHandler(async (req, res) => {
 
     console.log('[DEBUG] Adding job to BullMQ...');
     // Add job to Queue
-    const job = await pdfQueue.add('generate-pdf', {
-        courseId,
-        userId: req.user.id,
-        userName: req.user.name
-    });
+    try {
+        const job = await pdfQueue.add('generate-pdf', {
+            courseId,
+            userId: req.user.id,
+            userName: req.user.name
+        });
 
-    console.log('[DEBUG] Job added successfully:', job.id);
-    res.status(202).json({ jobId: job.id, message: 'PDF generation queued' });
+        console.log('[DEBUG] Job added successfully:', job.id);
+        res.status(202).json({ jobId: job.id, message: 'PDF generation queued' });
+    } catch (queueError) {
+        console.error('[ERROR] BullMQ/Redis Error:', queueError.message);
+        res.status(503).json({
+            message: 'PDF generation service unavailable. Redis connection failed.',
+            error: queueError.message,
+            hint: 'Ensure REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, and REDIS_TLS environment variables are set in Vercel.'
+        });
+    }
 });
 
 exports.getPDFStatus = asyncHandler(async (req, res) => {
